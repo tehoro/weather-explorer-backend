@@ -1,0 +1,91 @@
+{
+  "_note": "ECMWF Member and Co-operating States (verified 2026-10-07 against https://www.ecmwf.int/en/about/who-we-are/member-states) with overseas territories. 'unit' is the map unit id in assets/world_units.topo.json. 'meteoalarm' is the feeds.meteoalarm.org slug (null = not on Meteoalarm; use the national service and news). 'warnings' is the national warning page to cite.",
+  "states": [
+    {"name": "Austria", "status": "member", "unit": "AUT", "meteoalarm": "austria", "warnings": "https://warnungen.zamg.at"},
+    {"name": "Belgium", "status": "member", "unit": "BEL", "meteoalarm": "belgium", "warnings": "https://www.meteo.be/en/weather/warnings"},
+    {"name": "Croatia", "status": "member", "unit": "HRV", "meteoalarm": "croatia", "warnings": "https://meteo.hr/upozorenja.php"},
+    {"name": "Denmark", "status": "member", "unit": "DNK", "meteoalarm": "denmark", "warnings": "https://www.dmi.dk/varsler",
+     "territories": [
+       {"name": "Greenland", "unit": "GRL", "warnings": "https://www.dmi.dk/groenland"},
+       {"name": "Faroe Islands", "unit": "FRO", "warnings": "https://www.dmi.dk/foeroeerne"}
+     ]},
+    {"name": "Estonia", "status": "member", "unit": "EST", "meteoalarm": "estonia", "warnings": "https://www.ilmateenistus.ee/hoiatused"},
+    {"name": "Finland", "status": "member", "unit": "FIN", "meteoalarm": "finland", "warnings": "https://en.ilmatieteenlaitos.fi/warnings"},
+    {"name": "France", "status": "member", "unit": "FRA", "meteoalarm": "france", "warnings": "https://vigilance.meteofrance.fr",
+     "territories": [
+       {"name": "French Guiana", "unit": "GUF", "warnings": "https://meteofrance.gf/fr/vigilance"},
+       {"name": "Guadeloupe", "unit": "GLP", "warnings": "https://meteofrance.gp/fr/vigilance"},
+       {"name": "Martinique", "unit": "MTQ", "warnings": "https://meteofrance.mq/fr/vigilance"},
+       {"name": "Saint-Martin", "unit": "MAF", "warnings": "https://meteofrance.gp/fr/vigilance"},
+       {"name": "Saint-Barthélemy", "unit": "BLM", "warnings": "https://meteofrance.gp/fr/vigilance"},
+       {"name": "Réunion", "unit": "REU", "warnings": "https://meteofrance.re/fr/vigilance"},
+       {"name": "Mayotte", "unit": "MYT", "warnings": "https://meteofrance.yt/fr/vigilance"},
+       {"name": "Saint-Pierre-et-Miquelon", "unit": "SPM", "warnings": "https://meteofrance.pm/fr/vigilance"},
+       {"name": "French Polynesia", "unit": "PYF", "warnings": "https://meteofrance.pf/fr/vigilance"},
+       {"name": "New Caledonia", "unit": "NCL", "warnings": "https://www.meteo.nc/vigilance"},
+       {"name": "Wallis and Futuna", "unit": "WLF", "warnings": "https://meteofrance.nc"},
+       {"name": "French Southern and Antarctic Lands", "unit": "ATF", "warnings": null}
+     ]},
+    {"name": "Germany", "status": "member", "unit": "DEU", "meteoalarm": "germany", "warnings": "https://www.dwd.de/DE/wetter/warnungen/warnWetter_node.html"},
+    {"name": "Greece", "status": "member", "unit": "GRC", "meteoalarm": "greece", "warnings": "https://emy.gr"},
+    {"name": "Iceland", "status": "member", "unit": "ISL", "meteoalarm": "iceland", "warnings": "https://en.vedur.is/weather/warnings"},
+    {"name": "Ireland", "status": "member", "unit": "IRL", "meteoalarm": "ireland", "warnings": "https://www.met.ie/warnings"},
+    {"name": "Italy", "status": "member", "unit": "ITA", "meteoalarm": "italy", "warnings": "https://www.protezionecivile.gov.it/it/bollettini-avvisi"},
+    {"name": "Luxembourg", "status": "member", "unit": "LUX", "meteoalarm": "luxembourg", "warnings": "https://www.meteolux.lu"},
+    {"name": "Netherlands", "status": "member", "unit": "NLD", "meteoalarm": "netherlands", "warnings": "https://www.knmi.nl/nederland-nu/weer/waarschuwingen",
+     "territories": [
+       {"name": "Aruba", "unit": "ABW", "warnings": "https://www.meteo.aw"},
+       {"name": "Curaçao", "unit": "CUW", "warnings": "https://www.meteo.cw"},
+       {"name": "Sint Maarten", "unit": "SXM", "warnings": "https://www.meteosxm.com"},
+       {"name": "Caribbean Netherlands (Bonaire, Sint Eustatius, Saba)", "unit": "NLY", "warnings": "https://www.knmi.nl/nederland-nu/weer/waarschuwingen/caribisch-nederland"}
+     ]},
+    {"name": "Norway", "status": "member", "unit": "NOR", "meteoalarm": "norway", "warnings": "https://www.yr.no/en/warnings",
+     "territories": [
+       {"name": "Svalbard", "unit": "NSV", "warnings": "https://www.yr.no/en/warnings"},
+       {"name": "Jan Mayen", "unit": "NJM", "warnings": "https://www.yr.no/en/warnings"}
+     ]},
+    {"name": "Portugal", "status": "member", "unit": "PRT", "meteoalarm": "portugal", "warnings": "https://www.ipma.pt/en/otempo/prev-sam",
+     "territories": [
+       {"name": "Azores", "unit": "PAZ", "warnings": "https://www.ipma.pt/en/otempo/prev-sam"},
+       {"name": "Madeira", "unit": "PMD", "warnings": "https://www.ipma.pt/en/otempo/prev-sam"}
+     ]},
+    {"name": "Serbia", "status": "member", "unit": "SRB", "meteoalarm": "serbia", "warnings": "https://www.hidmet.gov.rs/eng/upozorenja"},
+    {"name": "Slovenia", "status": "member", "unit": "SVN", "meteoalarm": "slovenia", "warnings": "https://meteo.arso.gov.si"},
+    {"name": "Spain", "status": "member", "unit": "ESP", "meteoalarm": "spain", "warnings": "https://www.aemet.es/en/eltiempo/prediccion/avisos",
+     "territories": [
+       {"name": "Canary Islands", "unit": "CNR", "warnings": "https://www.aemet.es/en/eltiempo/prediccion/avisos"}
+     ]},
+    {"name": "Sweden", "status": "member", "unit": "SWE", "meteoalarm": "sweden", "warnings": "https://www.smhi.se/vader/varningar-och-brandrisk/varningar-och-meddelanden"},
+    {"name": "Switzerland", "status": "member", "unit": "CHE", "meteoalarm": "switzerland", "warnings": "https://www.meteoswiss.admin.ch/weather/weather-and-climate-from-a-to-z/hazards.html"},
+    {"name": "Türkiye", "status": "member", "unit": "TUR", "meteoalarm": null, "warnings": "https://www.mgm.gov.tr/meteouyari/turkiye.aspx"},
+    {"name": "United Kingdom", "status": "member", "unit": "GBR", "meteoalarm": "united-kingdom", "warnings": "https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings",
+     "territories": [
+       {"name": "Isle of Man", "unit": "IMN", "warnings": "https://www.gov.im/weather"},
+       {"name": "Jersey", "unit": "JEY", "warnings": "https://www.gov.je/weather"},
+       {"name": "Guernsey", "unit": "GGY", "warnings": "https://www.gov.gg/weather"},
+       {"name": "Bermuda", "unit": "BMU", "warnings": "https://www.weather.bm"},
+       {"name": "Anguilla", "unit": "AIA", "warnings": null},
+       {"name": "British Virgin Islands", "unit": "VGB", "warnings": "https://www.bviddm.com"},
+       {"name": "Cayman Islands", "unit": "CYM", "warnings": "https://www.weather.gov.ky"},
+       {"name": "Turks and Caicos Islands", "unit": "TCA", "warnings": null},
+       {"name": "Montserrat", "unit": "MSR", "warnings": null},
+       {"name": "Falkland Islands", "unit": "FLK", "warnings": null},
+       {"name": "Saint Helena, Ascension and Tristan da Cunha", "unit": "SHN", "warnings": null},
+       {"name": "South Georgia and the South Sandwich Islands", "unit": "SGS", "warnings": null},
+       {"name": "British Indian Ocean Territory", "unit": "IOT", "warnings": null},
+       {"name": "Pitcairn Islands", "unit": "PCN", "warnings": null}
+     ]},
+    {"name": "Bulgaria", "status": "co-operating", "unit": "BGR", "meteoalarm": "bulgaria", "warnings": "https://weather.bg"},
+    {"name": "Czech Republic", "status": "co-operating", "unit": "CZE", "meteoalarm": "czechia", "warnings": "https://www.chmi.cz/predpovedi/vystrahy-a-informace"},
+    {"name": "Georgia", "status": "co-operating", "unit": "GEO", "meteoalarm": null, "warnings": "https://meteo.gov.ge"},
+    {"name": "Hungary", "status": "co-operating", "unit": "HUN", "meteoalarm": "hungary", "warnings": "https://www.met.hu/en/idojaras/veszelyjelzes"},
+    {"name": "Israel", "status": "co-operating", "unit": "ISR", "meteoalarm": "israel", "warnings": "https://ims.gov.il/en/warnings"},
+    {"name": "Latvia", "status": "co-operating", "unit": "LVA", "meteoalarm": "latvia", "warnings": "https://bridinajumi.meteo.lv"},
+    {"name": "Lithuania", "status": "co-operating", "unit": "LTU", "meteoalarm": "lithuania", "warnings": "https://www.meteo.lt/en/warnings"},
+    {"name": "Montenegro", "status": "co-operating", "unit": "MNE", "meteoalarm": "montenegro", "warnings": "https://www.meteo.co.me"},
+    {"name": "Morocco", "status": "co-operating", "unit": "MAR", "meteoalarm": null, "warnings": "https://www.marocmeteo.ma"},
+    {"name": "North Macedonia", "status": "co-operating", "unit": "MKD", "meteoalarm": "republic-of-north-macedonia", "warnings": "https://uhmr.gov.mk"},
+    {"name": "Romania", "status": "co-operating", "unit": "ROU", "meteoalarm": "romania", "warnings": "https://www.meteoromania.ro/avertizari"},
+    {"name": "Slovakia", "status": "co-operating", "unit": "SVK", "meteoalarm": "slovakia", "warnings": "https://www.shmu.sk/en/?page=987"}
+  ]
+}

@@ -1,0 +1,16 @@
+# Weather Explorer backend on Replit.
+# Deploy as a Reserved VM (always on: chat connections, scheduled sweeps). Secrets to add in Replit:
+#   ANTHROPIC_API_KEY  (Claude guide and highlights sweeps)
+#   APP_KEY            (the key built into the iPhone/iPad app)
+# Attach an Object Storage bucket so the highlights feed survives restarts.
+modules = ["python-3.12"]
+run = "command -v uv >/dev/null || pip install uv; uv sync --frozen && .venv/bin/uvicorn server:app --host 0.0.0.0 --port 8000"
+
+[deployment]
+deploymentTarget = "gce"
+build = ["sh", "-c", "command -v uv >/dev/null || pip install uv; uv sync --frozen"]
+run = ["sh", "-c", ".venv/bin/uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}"]
+
+[[ports]]
+localPort = 8000
+externalPort = 80

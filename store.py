@@ -1,0 +1,62 @@
+"""Keeps the few files that must survive a restart: the highlights feed and the time of the last sweep.
+
+On Replit (where REPL_ID is set) a deployment's disk is reset on every restart, so these files are
+mirrored to Replit Object Storage: restored at start-up, saved after each sweep. Elsewhere the
+local disk is already persistent and this does nothing. If there is no feed anywhere, the copy in
+seed/ is used so a fresh deployment has something to show before its first sweep finishes.
+"""
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
+BACKEND = Path(__file__).parent
+FEED = BACKEND / "data" / "highlights" / "latest.json"
+LAST_SWEEP = FEED.parent / ".last_sweep"
+SEED = BACKEND / "seed" / "latest.json"
+KEYS = {"highlights/latest.json": FEED, "highlights/last_sweep": LAST_SWEEP}
+
+ON_REPLIT = bool(os.environ.get("REPL_ID"))
+
+
+def _client():
+    if not ON_REPLIT:
+        return None
+    try:
+        from replit.object_storage import Client
+        return Client()
+    except Exception as e:  # no bucket attached to the Repl, or the package is missing
+        print(f"[store] Replit Object Storage unavailable: {e}", file=sys.stderr, flush=True)
+        return None
+
+
+def restore() -> None:
+    FEED.parent.mkdir(parents=True, exist_ok=True)
+    c = _client()
+    if c:
+        for key, path in KEYS.items():
+            if path.exists():
+                continue
+            try:
+                if c.exists(key):
+                    path.write_text(c.download_as_text(key))
+                    print(f"[store] restored {key}", flush=True)
+            except Exception as e:
+                print(f"[store] could not restore {key}: {e}", file=sys.stderr, flush=True)
+    if not FEED.exists() and SEED.exists():
+        shutil.copy(SEED, FEED)
+        print("[store] no saved feed: using the seed copy", flush=True)
+
+
+def save() -> None:
+    c = _client()
+    if not c:
+        return
+    for key, path in KEYS.items():
+        if path.exists():
+            try:
+                c.upload_from_text(key, path.read_text())
+            except Exception as e:
+                print(f"[store] could not save {key}: {e}", file=sys.stderr, flush=True)

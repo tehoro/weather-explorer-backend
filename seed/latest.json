@@ -1,0 +1,1780 @@
+{
+ "generated_utc": "2026-10-22T16:10Z",
+ "cutoff_utc": "2026-10-22T16:00Z",
+ "runs": {
+  "hres": "2026-10-22T00:00Z",
+  "ens": "2026-10-22T00:00Z"
+ },
+ "coverage": "News searched worldwide (about 20 searches and fetches), MeteoAlarm orange/red to +48 h, GDACS worldwide, IFS ENS probabilities days 1-10, IFS HRES lows/rain/gusts to +120 h (00 UTC 22 Oct).",
+ "gaps": [
+  "HRES gust fields beyond +90 h (steps 93-120) were not available from Open Data, so the gust scan stops at 18 UTC 25 Oct",
+  "Web search returned little current news; several items rely on fetched articles or official pages, and three are model signals with no news confirmation (NZ, Hispaniola/Cuba, Bay of Bengal)",
+  "No IMD, MetService or Environment Canada bulletins checked directly",
+  "Japan Times article on Champi returned HTTP 403"
+ ],
+ "items": [
+  {
+   "id": "2026-10-22-typhoon-champi",
+   "title": "Typhoon Champi passes between Taiwan and Okinawa",
+   "hazards": [
+    "tropical-cyclone",
+    "wind",
+    "rain",
+    "coastal"
+   ],
+   "status": "ongoing",
+   "where": {
+    "label": "Taiwan, Sakishima Islands (Okinawa), East China Sea, Jeju and Kyushu",
+    "centre": [
+     24.0,
+     123.0
+    ],
+    "bbox": [
+     112,
+     15,
+     135,
+     38
+    ]
+   },
+   "when": {
+    "start": "2026-10-22T00:00Z",
+    "peak": "2026-10-23T06:00Z",
+    "end": "2026-10-25T00:00Z"
+   },
+   "summary": "Champi, the 30th typhoon of the year, was at 925 hPa with 50 m/s sustained winds south of the Sakishima Islands at 06 UTC on 22 Oct. JMA expects it to pass between Taiwan and Okinawa on Friday afternoon, then turn north over the East China Sea and become extratropical near western Japan by Monday. Taiwan's CWA has land warnings out for the east and expects the heaviest rain in the mountains of the north and north-east.",
+   "why_interesting": "A mature typhoon with a clear eye and a textbook recurvature: it weakens fast as it meets cooler water, shear and the mid-latitude westerlies, while Taiwan's mountains wring out extreme rain on the windward side.",
+   "evidence": [
+    {
+     "kind": "official",
+     "text": "GDACS red tropical cyclone alert CHAMPI-26 (Philippines, Guam, Japan, Taiwan)",
+     "url": "https://www.gdacs.org/report.aspx?eventid=1001338&episodeid=33&eventtype=TC"
+    },
+    {
+     "kind": "news",
+     "text": "Typhoon Champi: 925 hPa, expected between Okinawa and Taiwan Friday afternoon (JMA via Jiji) — Nippon.com, 22 Oct 2026",
+     "url": "https://www.nippon.com/en/news/yjj2026102200228/"
+    },
+    {
+     "kind": "news",
+     "text": "Taiwan issues land warning as Typhoon Champi approaches — Focus Taiwan, 22 Oct 2026",
+     "url": "https://focustaiwan.tw/society/202610220006"
+    },
+    {
+     "kind": "news",
+     "text": "CWA warns storm effect at top in next two days — Taipei Times, 22 Oct 2026",
+     "url": "https://www.taipeitimes.com/News/front/archives/2026/10/22/2003866405"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: low 947.5 hPa near 20N 126E at 00 UTC 22 Oct, filling to 984 hPa near 25N 122E by 00 UTC 24 Oct; gusts to 62 m/s near 23.5N 124E at 03 UTC 23 Oct"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: 24 h rain up to 396 mm over north-east Taiwan (23 Oct) and 327 mm near Jeju / western Kyushu (23 Oct)"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: 100 % chance of >50 mm in 24 h over eastern Taiwan (days 1-2) and over Jeju–Kyushu (days 2-3); 100 % chance of gusts >25 m/s around Taiwan, days 1-3 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "Champi turns north into the westerlies",
+     "fill": "tcwv",
+     "contours": "mslp",
+     "bbox": [
+      110,
+      12,
+      140,
+      40
+     ],
+     "start": "2026-10-21T00:00Z",
+     "end": "2026-10-25T12:00Z",
+     "focus": [
+      {
+       "lat": 25.03,
+       "lon": 121.56,
+       "label": "Taipei"
+      },
+      {
+       "lat": 24.34,
+       "lon": 124.16,
+       "label": "Ishigaki"
+      },
+      {
+       "lat": 33.5,
+       "lon": 126.53,
+       "label": "Jeju"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-21T00:00Z",
+       "text": "A compact moist core east of Luzon"
+      },
+      {
+       "at": "2026-10-22T12:00Z",
+       "text": "Moving north-west towards the Sakishima Islands"
+      },
+      {
+       "at": "2026-10-23T12:00Z",
+       "text": "Passing between Taiwan and Okinawa"
+      },
+      {
+       "at": "2026-10-24T12:00Z",
+       "text": "Caught by the westerlies, the moisture streams towards Japan"
+      }
+     ],
+     "speed": 4,
+     "hints_3d": {
+      "cross_section": [
+       [
+        24.0,
+        119.0
+       ],
+       [
+        24.0,
+        127.0
+       ]
+      ],
+      "camera": "from the south-east, looking over the eye towards Taiwan's mountains",
+      "emphasise": "eye and eyewall, then the moisture plume stretching north-east"
+     }
+    },
+    {
+     "title": "Eyewall winds near the Yaeyama Islands",
+     "fill": "wind10",
+     "contours": "mslp",
+     "vectors": "wind10",
+     "bbox": [
+      116,
+      18,
+      130,
+      29
+     ],
+     "start": "2026-10-22T06:00Z",
+     "end": "2026-10-24T00:00Z",
+     "focus": [
+      {
+       "lat": 24.34,
+       "lon": 124.16,
+       "label": "Ishigaki"
+      },
+      {
+       "lat": 24.81,
+       "lon": 125.28,
+       "label": "Miyako"
+      },
+      {
+       "lat": 24.76,
+       "lon": 121.75,
+       "label": "Yilan"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-22T06:00Z",
+       "text": "Strongest winds wrap around a tight eye"
+      },
+      {
+       "at": "2026-10-23T03:00Z",
+       "text": "Model gusts above 60 m/s near the Yaeyama Islands"
+      },
+      {
+       "at": "2026-10-23T18:00Z",
+       "text": "The storm fills quickly as it moves north"
+      }
+     ],
+     "speed": 4,
+     "hints_3d": {
+      "cross_section": [
+       [
+        23.5,
+        121.0
+       ],
+       [
+        23.5,
+        127.0
+       ]
+      ],
+      "camera": "low angle inside the eyewall",
+      "emphasise": "wind maximum on the right of the track"
+     }
+    },
+    {
+     "title": "Rain where the mountains meet the typhoon",
+     "fill": "precip",
+     "contours": "mslp",
+     "bbox": [
+      118,
+      21,
+      124,
+      27
+     ],
+     "start": "2026-10-22T06:00Z",
+     "end": "2026-10-24T12:00Z",
+     "focus": [
+      {
+       "lat": 25.03,
+       "lon": 121.56,
+       "label": "Taipei"
+      },
+      {
+       "lat": 24.76,
+       "lon": 121.75,
+       "label": "Yilan"
+      },
+      {
+       "lat": 23.98,
+       "lon": 121.6,
+       "label": "Hualien"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-22T12:00Z",
+       "text": "Outer rainbands reach eastern Taiwan"
+      },
+      {
+       "at": "2026-10-23T06:00Z",
+       "text": "Easterly winds forced up the Central Mountain Range"
+      },
+      {
+       "at": "2026-10-23T18:00Z",
+       "text": "Model totals near 400 mm in 24 h over the north-east"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        24.5,
+        120.0
+       ],
+       [
+        24.5,
+        122.5
+       ]
+      ],
+      "camera": "from the east, terrain exaggerated",
+      "emphasise": "orographic rain on the windward slopes"
+     }
+    },
+    {
+     "title": "The ensemble's rain signal moves to Jeju and Kyushu",
+     "fill": "ens_rain50",
+     "bbox": [
+      116,
+      20,
+      136,
+      38
+     ],
+     "start": "2026-10-22T00:00Z",
+     "end": "2026-10-25T00:00Z",
+     "focus": [
+      {
+       "lat": 33.5,
+       "lon": 126.53,
+       "label": "Jeju"
+      },
+      {
+       "lat": 33.59,
+       "lon": 130.4,
+       "label": "Fukuoka"
+      },
+      {
+       "lat": 25.03,
+       "lon": 121.56,
+       "label": "Taipei"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-22T00:00Z",
+       "text": "Every member gives over 50 mm in eastern Taiwan"
+      },
+      {
+       "at": "2026-10-23T12:00Z",
+       "text": "The signal shifts north to Jeju and Kyushu"
+      }
+     ],
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "Why do typhoons weaken so fast once they recurve?",
+    "How do Taiwan's mountains turn a near miss into a flood risk?",
+    "Why does HRES not capture the full 50 m/s winds at this resolution?"
+   ],
+   "confidence": "high: official warnings in Taiwan and Japan, GDACS red alert, ENS and HRES agree",
+   "rank": 1
+  },
+  {
+   "id": "2026-10-22-storm-austen",
+   "title": "Storm Austen: first named storm of the season hits Ireland, SW England and northern France",
+   "hazards": [
+    "wind",
+    "rain",
+    "coastal",
+    "flood"
+   ],
+   "status": "ongoing",
+   "where": {
+    "label": "Ireland, SW England, Brittany, Normandy, Belgian coast",
+    "centre": [
+     50.0,
+     -4.0
+    ],
+    "bbox": [
+     -20,
+     43,
+     12,
+     58
+    ]
+   },
+   "when": {
+    "start": "2026-10-22T12:00Z",
+    "peak": "2026-10-23T06:00Z",
+    "end": "2026-10-23T22:00Z"
+   },
+   "summary": "Storm Austen arrives this evening. Met Éireann has orange rain and wind warnings overnight. Météo-France has orange wind alerts for Brittany tonight and for 15 departments on Friday, with coastal gusts up to about 140 km/h, and Belgium has an orange wind warning for Friday afternoon. Rail services in Normandy are cancelled on Friday, and the Environment Agency expects coastal flooding on the South Devon coast.",
+   "why_interesting": "A classic autumn Atlantic windstorm on a strong jet. The highest model gusts are offshore at first, then run up the Channel. It is also the first of two named storms in three days.",
+   "evidence": [
+    {
+     "kind": "warning",
+     "text": "Met Éireann orange rain (Cork, Kerry, Waterford; Dublin, Wexford, Wicklow) and orange marine wind warnings, 22-23 Oct",
+     "url": "https://www.met.ie/warnings"
+    },
+    {
+     "kind": "warning",
+     "text": "Météo-France orange wind vigilance, Brittany and Normandy, 22-24 Oct",
+     "url": "https://vigilance.meteofrance.fr/"
+    },
+    {
+     "kind": "warning",
+     "text": "RMI orange wind warning for the Belgian coast and Flanders, 23 Oct",
+     "url": "https://www.meteo.be/en/weather/warnings/overview-belgium"
+    },
+    {
+     "kind": "warning",
+     "text": "Environment Agency: flooding expected, South Devon coast (Beesands, Torcross, Slapton, Dawlish)",
+     "url": "https://check-for-flooding.service.gov.uk"
+    },
+    {
+     "kind": "official",
+     "text": "Met Office names Storm Austen (published 20 Oct 2026)",
+     "url": "https://www.metoffice.gov.uk/about-us/news-and-media/media-centre/weather-and-climate-news/2026/storm-austen-named"
+    },
+    {
+     "kind": "news",
+     "text": "Storm Austen: orange warnings issued by Met Éireann — Irish Times, 22 Oct 2026",
+     "url": "https://www.irishtimes.com/environment/2026/10/22/storm-austen-orange-warnings-issued-by-met-eireann-as-ireland-cork-dublin-braces-for-torrential-rain-and-wind/"
+    },
+    {
+     "kind": "news",
+     "text": "Storm Austen to batter northern France with winds of up to 140 km/h — Connexion",
+     "url": "https://www.connexionfrance.com/weather/storm-austen-to-batter-northern-france-with-winds-of-up-to-140km/h/823230"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: gusts to 50 m/s near 47.5N 15W at 12 UTC 22 Oct (offshore)"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: 100 % chance of gusts >25 m/s over western Ireland and over Brittany / the western Channel, day 1 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "The jet drives Austen across the Atlantic",
+     "fill": "jet250",
+     "contours": "mslp",
+     "vectors": "jet250",
+     "bbox": [
+      -45,
+      35,
+      20,
+      65
+     ],
+     "start": "2026-10-21T12:00Z",
+     "end": "2026-10-24T00:00Z",
+     "focus": [
+      {
+       "lat": 53.35,
+       "lon": -6.26,
+       "label": "Dublin"
+      },
+      {
+       "lat": 48.39,
+       "lon": -4.49,
+       "label": "Brest"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-21T12:00Z",
+       "text": "A strong jet streak points at the Bay of Biscay"
+      },
+      {
+       "at": "2026-10-22T12:00Z",
+       "text": "Austen sits under the jet's left exit"
+      },
+      {
+       "at": "2026-10-23T12:00Z",
+       "text": "The storm races east into the Low Countries"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        40,
+        -20
+       ],
+       [
+        58,
+        0
+       ]
+      ],
+      "camera": "from the south-west, high angle",
+      "emphasise": "jet core above the surface low"
+     }
+    },
+    {
+     "title": "Gusts sweep up the Channel",
+     "fill": "gust",
+     "contours": "mslp",
+     "vectors": "wind10",
+     "bbox": [
+      -14,
+      44,
+      10,
+      57
+     ],
+     "start": "2026-10-22T12:00Z",
+     "end": "2026-10-23T21:00Z",
+     "focus": [
+      {
+       "lat": 51.9,
+       "lon": -8.47,
+       "label": "Cork"
+      },
+      {
+       "lat": 48.39,
+       "lon": -4.49,
+       "label": "Brest"
+      },
+      {
+       "lat": 49.18,
+       "lon": -0.37,
+       "label": "Caen"
+      },
+      {
+       "lat": 51.23,
+       "lon": 2.92,
+       "label": "Ostend"
+      },
+      {
+       "lat": 50.37,
+       "lon": -4.14,
+       "label": "Plymouth"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-22T12:00Z",
+       "text": "The strongest gusts are still over the open ocean"
+      },
+      {
+       "at": "2026-10-22T21:00Z",
+       "text": "Orange warnings begin in Ireland and Brittany"
+      },
+      {
+       "at": "2026-10-23T06:00Z",
+       "text": "Gusts peak along the Channel coasts"
+      },
+      {
+       "at": "2026-10-23T15:00Z",
+       "text": "Strong winds reach the Belgian coast"
+      }
+     ],
+     "speed": 4,
+     "hints_3d": {
+      "cross_section": [
+       [
+        46,
+        -8
+       ],
+       [
+        52,
+        2
+       ]
+      ],
+      "camera": "low over the Channel looking east",
+      "emphasise": "wind maximum south of the low centre"
+     }
+    },
+    {
+     "title": "Ensemble confidence in damaging gusts",
+     "fill": "ens_gust25",
+     "bbox": [
+      -14,
+      42,
+      14,
+      60
+     ],
+     "start": "2026-10-22T00:00Z",
+     "end": "2026-10-24T00:00Z",
+     "focus": [
+      {
+       "lat": 48.39,
+       "lon": -4.49,
+       "label": "Brest"
+      },
+      {
+       "lat": 51.9,
+       "lon": -8.47,
+       "label": "Cork"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-22T00:00Z",
+       "text": "Near-certain >25 m/s gusts on exposed western coasts"
+      }
+     ],
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "Who names European storms, and why 'Austen'?",
+    "Why are gusts so much stronger on coasts than inland?",
+    "How does the jet exit region help a low deepen?"
+   ],
+   "confidence": "high: orange warnings in four countries, ENS and HRES agree",
+   "rank": 2
+  },
+  {
+   "id": "2026-10-22-storm-boelo",
+   "title": "Storm Boelo follows on Saturday, aimed at Scotland and Northern Ireland",
+   "hazards": [
+    "wind",
+    "rain",
+    "coastal"
+   ],
+   "status": "forecast",
+   "where": {
+    "label": "Northern Ireland, Scotland, northern England, North Sea, Norway",
+    "centre": [
+     57.0,
+     -4.0
+    ],
+    "bbox": [
+     -25,
+     48,
+     15,
+     66
+    ]
+   },
+   "when": {
+    "start": "2026-10-24T06:00Z",
+    "peak": "2026-10-25T03:00Z",
+    "end": "2026-10-26T00:00Z"
+   },
+   "summary": "The Met Office has named a second storm, Boelo, for this weekend. Heavy rain arrives on Saturday and the strongest winds come Saturday night into Sunday. Yellow wind warnings cover Northern Ireland and Scotland, with gusts of 70-80 mph possible on exposed coasts, and Met Éireann flags flood risk on high tides in the west.",
+   "why_interesting": "Two named storms in three days is a classic picture of an active Atlantic storm track. Boelo takes a more northerly path than Austen, so you can compare two storms on one jet.",
+   "evidence": [
+    {
+     "kind": "official",
+     "text": "Met Office: Storm Boelo named as strong winds forecast for northern UK (22 Oct 2026)",
+     "url": "https://www.metoffice.gov.uk/about-us/news-and-media/media-centre/weather-and-climate-news/2026/storm-boelo-named-as-strong-winds-forecast-for-northern-uk"
+    },
+    {
+     "kind": "news",
+     "text": "Storm Boelo flood risk for western coasts at high tide — Irish Times, 22 Oct 2026",
+     "url": "https://www.irishtimes.com/environment/2026/10/22/storm-austen-orange-warnings-issued-by-met-eireann-as-ireland-cork-dublin-braces-for-torrential-rain-and-wind/"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: gusts to 40 m/s near 55.5N 6W (03 UTC 25 Oct), 41 m/s near 58N 0E (15 UTC 25 Oct), 39 m/s near 59N 4.5W (Orkney, 12 UTC 25 Oct)"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: 85 % chance of gusts >25 m/s near Gotland / Baltic, day 4; 77 % over southern Norway, day 5 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "A second low on the same jet",
+     "fill": "z500",
+     "contours": "mslp",
+     "bbox": [
+      -45,
+      40,
+      20,
+      70
+     ],
+     "start": "2026-10-23T00:00Z",
+     "end": "2026-10-26T00:00Z",
+     "focus": [
+      {
+       "lat": 55.86,
+       "lon": -4.25,
+       "label": "Glasgow"
+      },
+      {
+       "lat": 54.6,
+       "lon": -5.93,
+       "label": "Belfast"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-23T00:00Z",
+       "text": "Austen leaves, and a new wave forms upstream"
+      },
+      {
+       "at": "2026-10-24T12:00Z",
+       "text": "Boelo deepens as it approaches Ireland"
+      },
+      {
+       "at": "2026-10-25T06:00Z",
+       "text": "The centre passes north of Scotland"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        50,
+        -20
+       ],
+       [
+        62,
+        5
+       ]
+      ],
+      "camera": "from the south-west, high angle",
+      "emphasise": "upper trough tilting over the surface low"
+     }
+    },
+    {
+     "title": "Saturday night gales over Scotland",
+     "fill": "gust",
+     "contours": "mslp",
+     "vectors": "wind10",
+     "bbox": [
+      -16,
+      50,
+      10,
+      63
+     ],
+     "start": "2026-10-24T12:00Z",
+     "end": "2026-10-25T18:00Z",
+     "focus": [
+      {
+       "lat": 54.6,
+       "lon": -5.93,
+       "label": "Belfast"
+      },
+      {
+       "lat": 55.86,
+       "lon": -4.25,
+       "label": "Glasgow"
+      },
+      {
+       "lat": 58.98,
+       "lon": -2.96,
+       "label": "Kirkwall"
+      },
+      {
+       "lat": 57.15,
+       "lon": -2.09,
+       "label": "Aberdeen"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-24T18:00Z",
+       "text": "Yellow warnings begin for Scotland and Northern Ireland"
+      },
+      {
+       "at": "2026-10-25T03:00Z",
+       "text": "Model gusts near 40 m/s over the North Channel"
+      },
+      {
+       "at": "2026-10-25T12:00Z",
+       "text": "The strongest winds move to Orkney and the North Sea"
+      }
+     ],
+     "speed": 4,
+     "hints_3d": {
+      "cross_section": [
+       [
+        54,
+        -10
+       ],
+       [
+        60,
+        2
+       ]
+      ],
+      "camera": "low from the west over the Hebrides",
+      "emphasise": "tight pressure gradient on the low's south flank"
+     }
+    }
+   ],
+   "talking_points": [
+    "Why do storms often come in families?",
+    "Why does a high tide matter for a windstorm?"
+   ],
+   "confidence": "medium-high: named by the Met Office with yellow warnings; HRES gusts are strong, but ENS confidence over land is moderate",
+   "rank": 3
+  },
+  {
+   "id": "2026-10-22-tropical-storm-vance",
+   "title": "Tropical Storm Vance forecast to become a major hurricane off south-west Mexico",
+   "hazards": [
+    "tropical-cyclone",
+    "wind",
+    "rain",
+    "coastal"
+   ],
+   "status": "forecast",
+   "where": {
+    "label": "Eastern Pacific off Guerrero, Michoacán, Colima and Jalisco",
+    "centre": [
+     13.0,
+     -102.5
+    ],
+    "bbox": [
+     -112,
+     5,
+     -94,
+     22
+    ]
+   },
+   "when": {
+    "start": "2026-10-22T12:00Z",
+    "peak": "2026-10-24T12:00Z",
+    "end": "2026-10-27T00:00Z"
+   },
+   "summary": "At 15 UTC Vance was near 9.7N 101.0W with 50 kt winds. NHC expects it to become a hurricane tonight and reach Category 3 late Friday, while drifting north-north-west towards the coast. Swells will bring life-threatening surf to southern and south-western Mexico this weekend. HRES brings the system close to the Michoacán–Colima coast by 26 Oct with very heavy rain: model guidance only, so follow SMN and NHC.",
+   "why_interesting": "Rapid intensification in a slow-moving storm over very warm water. In the HRES it stalls near the coast, which is the situation that turns a hurricane into a flood event.",
+   "evidence": [
+    {
+     "kind": "official",
+     "text": "NHC Tropical Weather Discussion, 1605 UTC 22 Oct: Vance 50 kt, 997 mb, forecast Category 3 late Fri",
+     "url": "https://www.nhc.noaa.gov/mobile/text/MIATWDEP.html"
+    },
+    {
+     "kind": "news",
+     "text": "Pre-formation outlook: low south of Michoacán–Chiapas could become Vance — Por Esto, 17 Oct 2026",
+     "url": "https://www.poresto.com/mexico/2026/10/17/lluvias-fuertes-mexico-atentos-ciclon-vance.html"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: low deepening to 984 hPa near 14N 103W at 00 UTC 25 Oct (24 h fall 12 hPa); gusts 46 m/s near 15N 102.5W at 03 UTC 25 Oct"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: 24 h rain up to 557 mm near 17N 103.5W (26 Oct), on the Michoacán–Colima coast"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: 77 % chance of >50 mm in 24 h on the coast near 17N 102.5W, days 4-5 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "Vance organises over warm water",
+     "fill": "tcwv",
+     "contours": "mslp",
+     "bbox": [
+      -115,
+      3,
+      -92,
+      24
+     ],
+     "start": "2026-10-21T12:00Z",
+     "end": "2026-10-27T00:00Z",
+     "focus": [
+      {
+       "lat": 16.85,
+       "lon": -99.88,
+       "label": "Acapulco"
+      },
+      {
+       "lat": 17.96,
+       "lon": -102.2,
+       "label": "Lázaro Cárdenas"
+      },
+      {
+       "lat": 19.05,
+       "lon": -104.32,
+       "label": "Manzanillo"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-21T12:00Z",
+       "text": "A tropical storm well south of Acapulco"
+      },
+      {
+       "at": "2026-10-23T12:00Z",
+       "text": "Strengthening while drifting north-north-west"
+      },
+      {
+       "at": "2026-10-25T12:00Z",
+       "text": "Model track brings it close to the Michoacán coast"
+      }
+     ],
+     "speed": 4,
+     "hints_3d": {
+      "cross_section": [
+       [
+        10,
+        -106
+       ],
+       [
+        18,
+        -100
+       ]
+      ],
+      "camera": "from the south over the Pacific",
+      "emphasise": "growing eyewall and moisture envelope"
+     }
+    },
+    {
+     "title": "Core winds and the coast",
+     "fill": "wind10",
+     "contours": "mslp",
+     "vectors": "wind10",
+     "bbox": [
+      -110,
+      8,
+      -96,
+      21
+     ],
+     "start": "2026-10-23T00:00Z",
+     "end": "2026-10-26T12:00Z",
+     "focus": [
+      {
+       "lat": 17.96,
+       "lon": -102.2,
+       "label": "Lázaro Cárdenas"
+      },
+      {
+       "lat": 19.05,
+       "lon": -104.32,
+       "label": "Manzanillo"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-23T12:00Z",
+       "text": "NHC forecasts hurricane strength by now"
+      },
+      {
+       "at": "2026-10-25T03:00Z",
+       "text": "Model gusts near 46 m/s offshore"
+      }
+     ],
+     "speed": 4
+    },
+    {
+     "title": "Rain risk if Vance stalls near land",
+     "fill": "ens_rain50",
+     "bbox": [
+      -110,
+      10,
+      -96,
+      22
+     ],
+     "start": "2026-10-24T00:00Z",
+     "end": "2026-10-27T00:00Z",
+     "focus": [
+      {
+       "lat": 17.96,
+       "lon": -102.2,
+       "label": "Lázaro Cárdenas"
+      },
+      {
+       "lat": 19.05,
+       "lon": -104.32,
+       "label": "Manzanillo"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-25T00:00Z",
+       "text": "Over three-quarters of members give >50 mm on the coast"
+      }
+     ],
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "What is rapid intensification?",
+    "Why does a slow storm bring more rain?",
+    "Why trust NHC's track over a single model run?"
+   ],
+   "confidence": "medium: NHC forecasts a major hurricane offshore; landfall and coastal rain are model-only and uncertain",
+   "rank": 4
+  },
+  {
+   "id": "2026-10-22-bering-sea-storm",
+   "title": "Bering Sea storm brings blizzard, surge and high winds to western Alaska",
+   "hazards": [
+    "wind",
+    "snow",
+    "coastal",
+    "flood"
+   ],
+   "status": "forecast",
+   "where": {
+    "label": "Bering Sea, Norton Sound, Seward Peninsula, Yukon–Kuskokwim Delta",
+    "centre": [
+     62.0,
+     -168.0
+    ],
+    "bbox": [
+     155,
+     50,
+     205,
+     72
+    ]
+   },
+   "when": {
+    "start": "2026-10-22T12:00Z",
+    "peak": "2026-10-23T18:00Z",
+    "end": "2026-10-25T00:00Z"
+   },
+   "summary": "A deep low tracks from Kamchatka across the Bering Sea. Alaska's News Source reports blizzard, high wind and coastal flood warnings and watches, with peak impacts on Friday in western Alaska. Gusts could reach 75 mph south of the Seward Peninsula, and water levels could reach up to nearly 10 ft above the normal highest tide, the greatest risk being in eastern Norton Sound.",
+   "why_interesting": "Autumn Bering Sea storms hit coasts that have little sea ice to protect them. The long southerly fetch drives water into Norton Sound, so the surge animates well.",
+   "evidence": [
+    {
+     "kind": "news",
+     "text": "Strong storm to bring blizzard conditions, flooding, high surf and high winds to western Alaska — Alaska's News Source, 21-22 Oct 2026",
+     "url": "https://www.alaskasnewssource.com/2026/10/22/strong-storm-bring-blizzard-conditions-flooding-high-surf-high-winds-western-alaska/"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: deep low 959 hPa near 58N 175E at 12 UTC 23 Oct, tracking from near 52N 154E"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: 100 % chance of gusts >25 m/s over the Yukon Delta coast and Seward Peninsula, days 2-3, and the Alaska Peninsula, day 2 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "From Kamchatka to the Bering Strait",
+     "fill": "mslp",
+     "contours": "mslp",
+     "vectors": "wind10",
+     "bbox": [
+      150,
+      45,
+      215,
+      72
+     ],
+     "start": "2026-10-22T00:00Z",
+     "end": "2026-10-25T00:00Z",
+     "focus": [
+      {
+       "lat": 64.5,
+       "lon": -165.41,
+       "label": "Nome"
+      },
+      {
+       "lat": 59.94,
+       "lon": -164.04,
+       "label": "Kipnuk"
+      },
+      {
+       "lat": 67.73,
+       "lon": -164.53,
+       "label": "Kivallina"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-22T00:00Z",
+       "text": "The low leaves Kamchatka"
+      },
+      {
+       "at": "2026-10-23T12:00Z",
+       "text": "Near 959 hPa over the central Bering Sea"
+      },
+      {
+       "at": "2026-10-24T00:00Z",
+       "text": "Southerly gales push water into Norton Sound"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        55,
+        180
+       ],
+       [
+        66,
+        -162
+       ]
+      ],
+      "camera": "from the south over the Aleutians",
+      "emphasise": "long southerly fetch towards the coast"
+     }
+    },
+    {
+     "title": "Gale probabilities on the coast",
+     "fill": "ens_gust25",
+     "bbox": [
+      -180,
+      52,
+      -150,
+      70
+     ],
+     "start": "2026-10-22T12:00Z",
+     "end": "2026-10-25T00:00Z",
+     "focus": [
+      {
+       "lat": 64.5,
+       "lon": -165.41,
+       "label": "Nome"
+      },
+      {
+       "lat": 61.2,
+       "lon": -149.9,
+       "label": "Anchorage"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-23T00:00Z",
+       "text": "All members bring >25 m/s gusts to the delta coast"
+      }
+     ],
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "Why are autumn storms worse for western Alaska than winter ones?",
+    "How does wind create storm surge?"
+   ],
+   "confidence": "high: NWS warnings reported, ENS and HRES agree",
+   "rank": 5
+  },
+  {
+   "id": "2026-10-22-se-queensland-flash-floods",
+   "title": "Flash floods in south-east Queensland: over 200 mm in six hours",
+   "hazards": [
+    "flood",
+    "rain",
+    "convection"
+   ],
+   "status": "observed",
+   "where": {
+    "label": "Brisbane, Moreton Bay, Scenic Rim, Sunshine Coast",
+    "centre": [
+     -27.2,
+     152.9
+    ],
+    "bbox": [
+     149,
+     -30,
+     156,
+     -24
+    ]
+   },
+   "when": {
+    "start": "2026-10-21T18:00Z",
+    "peak": "2026-10-22T03:00Z",
+    "end": "2026-10-24T00:00Z"
+   },
+   "summary": "Intense storms on 22 Oct dropped 203 mm in six hours at Caboolture, causing swift-water rescues, 94 road closures and school closures, and leading to dam releases from Somerset into Wivenhoe. The Bureau of Meteorology expects rain to ease in the south-east, though heavy bursts are possible over southern and central Queensland for another one to three days.",
+   "why_interesting": "A sharp, localised convective event that is hard for global models. It is a good test of what a 9 km model sees compared with what rain gauges recorded.",
+   "evidence": [
+    {
+     "kind": "news",
+     "text": "South-east Queensland storm warning live updates (203 mm in 6 h at Caboolture) — ABC News, 22 Oct 2026",
+     "url": "https://www.abc.net.au/news/2026-10-22/queensland-south-east-storm-warning-live-updates/107294406"
+    },
+    {
+     "kind": "field",
+     "text": "No 24 h total ≥100 mm in the HRES scan here: the event was too small and too short for the objective scan"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "Storm rain over the Brisbane region",
+     "fill": "precip",
+     "contours": "mslp",
+     "bbox": [
+      149,
+      -30,
+      156,
+      -24
+     ],
+     "start": "2026-10-21T18:00Z",
+     "end": "2026-10-23T12:00Z",
+     "focus": [
+      {
+       "lat": -27.47,
+       "lon": 153.03,
+       "label": "Brisbane"
+      },
+      {
+       "lat": -27.08,
+       "lon": 152.95,
+       "label": "Caboolture"
+      },
+      {
+       "lat": -28.2,
+       "lon": 152.73,
+       "label": "Mt Barney"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-21T21:00Z",
+       "text": "Storms build in moist north-easterly flow"
+      },
+      {
+       "at": "2026-10-22T03:00Z",
+       "text": "Gauges recorded 203 mm in six hours at Caboolture"
+      },
+      {
+       "at": "2026-10-22T18:00Z",
+       "text": "Compare the model's smooth rain with the gauge totals"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        -27.1,
+        151.5
+       ],
+       [
+        -27.1,
+        154.0
+       ]
+      ],
+      "camera": "from the east over the coast",
+      "emphasise": "moisture feeding storms on the ranges"
+     }
+    },
+    {
+     "title": "Moisture over eastern Australia",
+     "fill": "tcwv",
+     "contours": "mslp",
+     "bbox": [
+      135,
+      -40,
+      160,
+      -15
+     ],
+     "start": "2026-10-21T00:00Z",
+     "end": "2026-10-24T00:00Z",
+     "focus": [
+      {
+       "lat": -27.47,
+       "lon": 153.03,
+       "label": "Brisbane"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-21T12:00Z",
+       "text": "A moist air mass over the Queensland coast"
+      }
+     ],
+     "speed": 3
+    }
+   ],
+   "talking_points": [
+    "Why can 200 mm fall in one suburb and 20 mm in the next?",
+    "What can a global model resolve, and what can't it?"
+   ],
+   "confidence": "high for the observed event (gauges, emergency services); low for model detail",
+   "rank": 6
+  },
+  {
+   "id": "2026-10-22-northern-manitoba-storm",
+   "title": "Major autumn storm for northern Manitoba and Hudson Bay",
+   "hazards": [
+    "wind",
+    "snow"
+   ],
+   "status": "forecast",
+   "where": {
+    "label": "Northern Manitoba, Saskatchewan, western Hudson Bay",
+    "centre": [
+     58.0,
+     -95.0
+    ],
+    "bbox": [
+     -115,
+     48,
+     -75,
+     66
+    ]
+   },
+   "when": {
+    "start": "2026-10-23T00:00Z",
+    "peak": "2026-10-25T12:00Z",
+    "end": "2026-10-26T12:00Z"
+   },
+   "summary": "CTV News reports a major autumn storm heading for northern Manitoba and a significant storm for northern Saskatchewan. The ensemble gives up to 94 % chance of gusts above 25 m/s along the western Hudson Bay coast near Churchill on days 3-4. Check Environment Canada for warnings and snow amounts.",
+   "why_interesting": "An early-season Prairie storm that deepens as it reaches the still-open waters of Hudson Bay. It marks the seasonal switch from rain to snow.",
+   "evidence": [
+    {
+     "kind": "news",
+     "text": "Major fall storm heading to parts of Manitoba — CTV News Winnipeg, 22 Oct 2026",
+     "url": "https://www.ctvnews.ca/winnipeg/article/major-fall-storm-heading-to-parts-of-manitoba/"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: up to 94 % chance of gusts >25 m/s near 59.5N 94.5W (Churchill / Hudson Bay coast), days 3-4; 66 % near 60N 79W (eastern Hudson Bay), day 5 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "A Prairie low heads for Hudson Bay",
+     "fill": "z500",
+     "contours": "mslp",
+     "bbox": [
+      -125,
+      40,
+      -70,
+      70
+     ],
+     "start": "2026-10-23T00:00Z",
+     "end": "2026-10-27T00:00Z",
+     "focus": [
+      {
+       "lat": 58.77,
+       "lon": -94.17,
+       "label": "Churchill"
+      },
+      {
+       "lat": 49.9,
+       "lon": -97.14,
+       "label": "Winnipeg"
+      },
+      {
+       "lat": 55.1,
+       "lon": -105.3,
+       "label": "La Ronge"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-23T12:00Z",
+       "text": "A trough digs over the Prairies"
+      },
+      {
+       "at": "2026-10-25T00:00Z",
+       "text": "The low deepens over Hudson Bay"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        50,
+        -110
+       ],
+       [
+        60,
+        -90
+       ]
+      ],
+      "camera": "from the south, high angle",
+      "emphasise": "cold air wrapping behind the low"
+     }
+    },
+    {
+     "title": "Cold air floods in behind",
+     "fill": "t2m",
+     "contours": "mslp",
+     "bbox": [
+      -115,
+      48,
+      -80,
+      65
+     ],
+     "start": "2026-10-23T00:00Z",
+     "end": "2026-10-27T00:00Z",
+     "focus": [
+      {
+       "lat": 58.77,
+       "lon": -94.17,
+       "label": "Churchill"
+      },
+      {
+       "lat": 56.86,
+       "lon": -101.0,
+       "label": "Lynn Lake"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-24T12:00Z",
+       "text": "The freezing line sweeps south behind the low"
+      }
+     ],
+     "speed": 4
+    },
+    {
+     "title": "Gale chances on the Hudson Bay coast",
+     "fill": "ens_gust25",
+     "bbox": [
+      -110,
+      50,
+      -75,
+      66
+     ],
+     "start": "2026-10-24T00:00Z",
+     "end": "2026-10-27T00:00Z",
+     "focus": [
+      {
+       "lat": 58.77,
+       "lon": -94.17,
+       "label": "Churchill"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-25T00:00Z",
+       "text": "Up to 94 % of members give >25 m/s gusts"
+      }
+     ],
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "Why does open Hudson Bay water feed autumn storms?"
+   ],
+   "confidence": "medium: news report and strong ENS signal, warning details not checked",
+   "rank": 7
+  },
+  {
+   "id": "2026-10-22-new-zealand-south-island",
+   "title": "Wind and heavy rain for New Zealand's South Island early next week (model signal)",
+   "hazards": [
+    "wind",
+    "rain"
+   ],
+   "status": "forecast",
+   "where": {
+    "label": "Westland, Southern Alps, Canterbury, Southland",
+    "centre": [
+     -43.0,
+     171.0
+    ],
+    "bbox": [
+     160,
+     -50,
+     182,
+     -36
+    ]
+   },
+   "when": {
+    "start": "2026-10-25T00:00Z",
+    "peak": "2026-10-26T12:00Z",
+    "end": "2026-10-28T00:00Z"
+   },
+   "summary": "The ensemble is unanimous on a strong north-westerly over the South Island on 25-27 Oct: 100 % chance of gusts above 25 m/s around the Southern Alps and Canterbury, and 100 % chance of more than 50 mm in 24 h on the West Coast on 26 Oct. No MetService warning or news report was found yet, so this is a model signal only.",
+   "why_interesting": "A textbook orographic setup: moist westerlies pile rain onto the West Coast, while Canterbury gets dry, gusty föhn winds in the lee of the Alps.",
+   "evidence": [
+    {
+     "kind": "ensemble",
+     "text": "ENS: 100 % chance of gusts >25 m/s near 42.5S 172.5E, days 4-5; 96.5 % near Southland, days 6-7 (00 UTC 22 Oct)"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: 100 % chance of >50 mm in 24 h near 43S 171E (Westland), day 5 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "North-westerlies across the Southern Alps",
+     "fill": "wind10",
+     "contours": "mslp",
+     "vectors": "wind10",
+     "bbox": [
+      162,
+      -49,
+      180,
+      -37
+     ],
+     "start": "2026-10-25T00:00Z",
+     "end": "2026-10-27T12:00Z",
+     "focus": [
+      {
+       "lat": -42.45,
+       "lon": 171.21,
+       "label": "Greymouth"
+      },
+      {
+       "lat": -43.53,
+       "lon": 172.64,
+       "label": "Christchurch"
+      },
+      {
+       "lat": -43.39,
+       "lon": 170.18,
+       "label": "Franz Josef"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-25T12:00Z",
+       "text": "North-westerlies strengthen ahead of a front"
+      },
+      {
+       "at": "2026-10-26T12:00Z",
+       "text": "Föhn gusts spill into Canterbury"
+      }
+     ],
+     "speed": 4,
+     "hints_3d": {
+      "cross_section": [
+       [
+        -42.5,
+        168.5
+       ],
+       [
+        -44.0,
+        173.5
+       ]
+      ],
+      "camera": "from the north-west, terrain exaggerated",
+      "emphasise": "wet windward slopes and dry, gusty lee"
+     }
+    },
+    {
+     "title": "Rain piles onto the West Coast",
+     "fill": "ens_rain50",
+     "bbox": [
+      164,
+      -48,
+      178,
+      -39
+     ],
+     "start": "2026-10-25T00:00Z",
+     "end": "2026-10-28T00:00Z",
+     "focus": [
+      {
+       "lat": -42.45,
+       "lon": 171.21,
+       "label": "Greymouth"
+      },
+      {
+       "lat": -43.39,
+       "lon": 170.18,
+       "label": "Franz Josef"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-26T00:00Z",
+       "text": "All members give over 50 mm on the West Coast"
+      }
+     ],
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "What is a föhn wind?",
+    "Why is the West Coast one of the wettest places on Earth?"
+   ],
+   "confidence": "medium: strong ENS agreement days 4-5, no official warning found yet",
+   "rank": 8
+  },
+  {
+   "id": "2026-10-22-hispaniola-cuba-rain",
+   "title": "Heavy rain risk for Haiti and eastern Cuba this weekend (model signal)",
+   "hazards": [
+    "rain",
+    "flood"
+   ],
+   "status": "forecast",
+   "where": {
+    "label": "Haiti, eastern Cuba, Dominican Republic, Jamaica",
+    "centre": [
+     19.0,
+     -75.0
+    ],
+    "bbox": [
+     -82,
+     15,
+     -68,
+     24
+    ]
+   },
+   "when": {
+    "start": "2026-10-24T00:00Z",
+    "peak": "2026-10-25T12:00Z",
+    "end": "2026-10-26T12:00Z"
+   },
+   "summary": "The ensemble gives up to 78 % chance of more than 50 mm in 24 h over eastern Cuba and western Haiti on days 3-4. HRES has up to 251 mm in 24 h near 19.5N 74.5W on 25 Oct. No news or official outlook was found to confirm this, so treat it as model guidance only.",
+   "why_interesting": "Haiti's steep, deforested slopes make heavy rain dangerous even without a named storm, so this is a quiet signal worth watching.",
+   "evidence": [
+    {
+     "kind": "ensemble",
+     "text": "ENS: 78.5 % chance of >50 mm in 24 h near 19N 75.5W, days 3-4 (00 UTC 22 Oct)"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: 24 h rain up to 251 mm near 19.5N 74.5W (25 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "Moisture gathers over the northern Caribbean",
+     "fill": "tcwv",
+     "contours": "mslp",
+     "bbox": [
+      -88,
+      10,
+      -62,
+      28
+     ],
+     "start": "2026-10-23T00:00Z",
+     "end": "2026-10-26T12:00Z",
+     "focus": [
+      {
+       "lat": 18.54,
+       "lon": -72.34,
+       "label": "Port-au-Prince"
+      },
+      {
+       "lat": 20.02,
+       "lon": -75.82,
+       "label": "Santiago de Cuba"
+      },
+      {
+       "lat": 17.97,
+       "lon": -76.79,
+       "label": "Kingston"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-24T00:00Z",
+       "text": "Deep tropical moisture over the Windward Passage"
+      }
+     ],
+     "speed": 3
+    },
+    {
+     "title": "Rain over the mountains of Hispaniola and Cuba",
+     "fill": "precip",
+     "bbox": [
+      -80,
+      16,
+      -68,
+      23
+     ],
+     "start": "2026-10-24T00:00Z",
+     "end": "2026-10-26T12:00Z",
+     "focus": [
+      {
+       "lat": 18.54,
+       "lon": -72.34,
+       "label": "Port-au-Prince"
+      },
+      {
+       "lat": 19.76,
+       "lon": -72.2,
+       "label": "Cap-Haïtien"
+      },
+      {
+       "lat": 20.02,
+       "lon": -75.82,
+       "label": "Santiago de Cuba"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-25T00:00Z",
+       "text": "Model totals peak near 250 mm in 24 h"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        18.0,
+        -76.0
+       ],
+       [
+        20.5,
+        -72.0
+       ]
+      ],
+      "camera": "from the south, terrain exaggerated",
+      "emphasise": "rain on the Massif de la Hotte and Sierra Maestra"
+     }
+    },
+    {
+     "title": "Ensemble rain probability",
+     "fill": "ens_rain50",
+     "bbox": [
+      -80,
+      16,
+      -68,
+      23
+     ],
+     "start": "2026-10-24T00:00Z",
+     "end": "2026-10-26T12:00Z",
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "Why can a weak disturbance be deadly in Haiti?"
+   ],
+   "confidence": "low-medium: ENS and HRES agree, no official or news confirmation",
+   "rank": 9
+  },
+  {
+   "id": "2026-10-22-bay-of-bengal-low",
+   "title": "Possible depression in the Bay of Bengal next week (model only)",
+   "hazards": [
+    "tropical-cyclone",
+    "rain"
+   ],
+   "status": "forecast",
+   "where": {
+    "label": "Bay of Bengal, towards the Odisha–Andhra Pradesh coast",
+    "centre": [
+     16.0,
+     86.0
+    ],
+    "bbox": [
+     78,
+     8,
+     96,
+     24
+    ]
+   },
+   "when": {
+    "start": "2026-10-25T00:00Z",
+    "peak": "2026-10-27T00:00Z",
+    "end": "2026-10-29T00:00Z"
+   },
+   "summary": "HRES develops a low of about 989 hPa near 16N 85E by 27 Oct, with 24 h rain above 250 mm over the sea. The ensemble gives a 64 % chance of more than 50 mm on the Odisha coast on day 7. No IMD bulletin was found: this is a possible tropical cyclone in the model only, and is not a named or active storm.",
+   "why_interesting": "Late October is the start of the post-monsoon cyclone season in the Bay of Bengal. The ensemble shows how much the signal varies five to seven days ahead.",
+   "evidence": [
+    {
+     "kind": "field",
+     "text": "HRES: possible tropical cyclone (model only) 989 hPa near 16N 85E at 00 UTC 27 Oct"
+    },
+    {
+     "kind": "field",
+     "text": "HRES: 24 h rain up to 268 mm near 14.5N 88.5E (25 Oct) and 251 mm near 15N 87E (26 Oct)"
+    },
+    {
+     "kind": "ensemble",
+     "text": "ENS: 64.5 % chance of >50 mm in 24 h near 19N 84.5E (Odisha coast), day 7 (00 UTC 22 Oct)"
+    }
+   ],
+   "scenes": [
+    {
+     "title": "A low takes shape over the Bay",
+     "fill": "tcwv",
+     "contours": "mslp",
+     "bbox": [
+      76,
+      4,
+      100,
+      26
+     ],
+     "start": "2026-10-24T00:00Z",
+     "end": "2026-10-29T00:00Z",
+     "focus": [
+      {
+       "lat": 19.81,
+       "lon": 85.83,
+       "label": "Puri"
+      },
+      {
+       "lat": 17.69,
+       "lon": 83.22,
+       "label": "Visakhapatnam"
+      },
+      {
+       "lat": 22.57,
+       "lon": 88.36,
+       "label": "Kolkata"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-25T00:00Z",
+       "text": "Moisture organises over the central Bay"
+      },
+      {
+       "at": "2026-10-27T00:00Z",
+       "text": "HRES deepens a low to about 989 hPa (model only)"
+      }
+     ],
+     "speed": 3,
+     "hints_3d": {
+      "cross_section": [
+       [
+        12,
+        82
+       ],
+       [
+        20,
+        90
+       ]
+      ],
+      "camera": "from the south over the Bay",
+      "emphasise": "how organised the circulation becomes"
+     }
+    },
+    {
+     "title": "How sure is the rain?",
+     "fill": "ens_rain50",
+     "bbox": [
+      78,
+      10,
+      94,
+      24
+     ],
+     "start": "2026-10-26T00:00Z",
+     "end": "2026-10-30T00:00Z",
+     "focus": [
+      {
+       "lat": 19.81,
+       "lon": 85.83,
+       "label": "Puri"
+      }
+     ],
+     "captions": [
+      {
+       "at": "2026-10-28T00:00Z",
+       "text": "About two-thirds of members give >50 mm on the Odisha coast"
+      }
+     ],
+     "speed": 2
+    }
+   ],
+   "talking_points": [
+    "Why does the Bay of Bengal have two cyclone seasons?",
+    "How should you read a day-7 probability?"
+   ],
+   "confidence": "low: model only, no official outlook found",
+   "rank": 10
+  }
+ ],
+ "schema_version": 1,
+ "attribution": "Data: © 2026 ECMWF, CC BY 4.0. Regridded and unit-converted."
+}
