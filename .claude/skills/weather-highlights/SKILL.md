@@ -17,12 +17,12 @@ that isn't happening. Model output is guidance, not a warning — official warni
 national services, so cite them.
 
 Work from the backend directory (the one holding `fields.py`). `$S` below is
-`.claude/skills/weather-highlights`. Run Python with `.venv/bin/python` (the backend's own environment).
+`.claude/skills/weather-highlights`. Run Python with `uv run --frozen python` (the backend's own environment, on any machine).
 
 ## 1. Gather evidence (run both, in parallel)
 
 ```bash
-.venv/bin/python $S/scripts/scan_fields.py --out data/highlights/scan.json
+uv run --frozen python $S/scripts/scan_fields.py --out data/highlights/scan.json
 python3 $S/scripts/fetch_warnings.py --worldwide --hours-ahead 48 --out data/highlights/warnings.json
 ```
 
@@ -85,7 +85,7 @@ Rank items 1..N by how worthwhile they are to explore now.
 Write the draft to `data/highlights/draft.json`, then:
 
 ```bash
-.venv/bin/python $S/scripts/publish_highlights.py data/highlights/draft.json
+uv run --frozen python $S/scripts/publish_highlights.py data/highlights/draft.json
 ```
 
 It refuses to publish until the feed is valid and lists each problem: fix and rerun. On success
