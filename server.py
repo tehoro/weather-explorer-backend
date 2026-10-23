@@ -230,13 +230,19 @@ async def highlights_refresh():
                         status_code=202 if ok else 429)
 
 
+# Wide, many-frame requests decode whole global fields; a few at a time keeps memory in bounds
+# on a small server (the rest wait their turn).
+_field_slots = asyncio.Semaphore(int(os.environ.get("FIELD_CONCURRENCY", "3")))
+
+
 @app.get("/api/fields", dependencies=[Depends(require("data"))])
 async def get_fields(layer: str, bbox: str, start: str | None = None, end: str | None = None,
                      max_px: int = Query(256, ge=32, le=512), max_frames: int = Query(40, ge=1, le=80)):
     if layer not in fields.LAYERS:
         raise HTTPException(400, f"unknown layer; choose from {list(fields.LAYERS)}")
     try:
-        return await asyncio.to_thread(fields.get_frames, layer, bbox, start, end, max_px, max_frames)
+        async with _field_slots:
+            return await asyncio.to_thread(fields.get_frames, layer, bbox, start, end, max_px, max_frames)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except RuntimeError as e:
@@ -276,8 +282,7 @@ async def ws_agent(ws: WebSocket):
     inbox: asyncio.Queue[str] = asyncio.Queue()
 
     async def worker():
-        await session.start()
-        await send({"type": "ready"})
+        await send({"type": "ready"})   # the Claude process starts with the first question
         while True:
             prompt = await inbox.get()
             if not allow_turn(f'{rec["owner"]}/{device}'):

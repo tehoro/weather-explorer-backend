@@ -219,14 +219,21 @@ def stats(layer: str, bbox: list[float], t: str) -> dict:
             "mean": round(float(np.nanmean(vals)), 1)}
 
 
+# Each conversation runs a Claude Code process (a few hundred MB). It starts with the first
+# question, not when the app connects, and stops after this many idle minutes (a later question
+# starts a fresh one), so connected-but-idle apps don't use up the server's memory.
+CHAT_IDLE_MINUTES = float(os.environ.get("CHAT_IDLE_MINUTES", "10"))
+
+
 class ChatSession:
     def __init__(self, send: Send, on_refresh: Callable[[], str]):
         self.send = send
         self.state: dict[str, Any] = {}
         self.on_refresh = on_refresh
         self.client: ClaudeSDKClient | None = None
+        self._idle: asyncio.Task | None = None
 
-    async def start(self):
+    async def _connect(self):
         tools = ["WebSearch", "WebFetch"]   # no file or shell access: the feed comes through get_highlight
         options = ClaudeAgentOptions(
             model=CHAT_MODEL,
@@ -243,6 +250,21 @@ class ChatSession:
         await self.client.connect()
 
     async def ask(self, prompt: str):
+        if self._idle:
+            self._idle.cancel()
+        if not self.client:
+            await self._connect()
+        assert self.client
+        try:
+            await self._ask(prompt)
+        finally:
+            self._idle = asyncio.create_task(self._close_when_idle())
+
+    async def _close_when_idle(self):
+        await asyncio.sleep(CHAT_IDLE_MINUTES * 60)
+        await self._disconnect()
+
+    async def _ask(self, prompt: str):
         assert self.client
         await self.client.query(prompt)
         async for msg in self.client.receive_response():
@@ -257,9 +279,18 @@ class ChatSession:
             elif isinstance(msg, ResultMessage):
                 await self.send({"type": "done", "cost_usd": msg.total_cost_usd, "error": msg.is_error})
 
+    async def _disconnect(self):
+        client, self.client = self.client, None
+        if client:
+            try:
+                await client.disconnect()
+            except Exception:
+                pass
+
     async def close(self):
-        if self.client:
-            await self.client.disconnect()
+        if self._idle:
+            self._idle.cancel()
+        await self._disconnect()
 
 
 REFRESH_PROMPT = ("Run the weather-highlights skill now and publish a fresh highlights feed. "
