@@ -66,10 +66,21 @@ def build(feed_path: Path = store.FEED) -> int:
     """Build the files for every scene in the feed and record them in it. Returns files written."""
     feed = json.loads(feed_path.read_text())
     tag = _tag(feed)
+    written = build_items(feed.get("items", []), tag)
+    tmp = feed_path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(feed, ensure_ascii=False, indent=1))
+    tmp.replace(feed_path)
+    _prune()
+    print(f"[scenes] {tag}: {written} files built", flush=True)
+    return written
+
+
+def build_items(items: list[dict], tag: str) -> int:
+    """Build scene files for these items into data/scenes/<tag>/, adding scene["data"]; saves them to storage."""
     out_dir = DIR / tag
     out_dir.mkdir(parents=True, exist_ok=True)
     written = 0
-    for item in feed.get("items", []):
+    for item in items:
         for n, scene in enumerate(item.get("scenes", [])):
             files = {}
             for role, layer in _roles(scene).items():
@@ -93,13 +104,12 @@ def build(feed_path: Path = store.FEED) -> int:
                 files[role] = f"{tag}/{name}"
             if files:
                 scene["data"] = files
-    tmp = feed_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(feed, ensure_ascii=False, indent=1))
-    tmp.replace(feed_path)
     store.save_scenes(out_dir)
-    _prune()
-    print(f"[scenes] {tag}: {written} files built", flush=True)
     return written
+
+
+def remove(tag: str) -> None:
+    shutil.rmtree(DIR / tag, ignore_errors=True)
 
 
 def missing(feed_path: Path = store.FEED) -> bool:
@@ -122,6 +132,7 @@ def path_for(rel: str) -> Path | None:
 
 
 def _prune() -> None:
-    dirs = sorted((d for d in DIR.iterdir() if d.is_dir()), key=lambda d: d.name, reverse=True)
+    """Keep the scene files of the last few feeds (requested highlights are removed when they expire)."""
+    dirs = sorted((d for d in DIR.iterdir() if d.is_dir() and d.name[:1].isdigit()), key=lambda d: d.name, reverse=True)
     for d in dirs[KEEP:]:
         shutil.rmtree(d, ignore_errors=True)

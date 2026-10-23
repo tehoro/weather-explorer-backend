@@ -85,3 +85,46 @@ def restore_scene(rel: str, path: Path) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
     return True
+
+
+REQUESTS = FEED.parent.parent / "requests"
+
+
+def save_requests() -> None:
+    """Save the list of live requested highlights."""
+    c = _client()
+    p = REQUESTS / "active.json"
+    if c and p.exists():
+        try:
+            c.upload_from_text("requests/active.json", p.read_text())
+        except Exception as e:
+            print(f"[store] could not save requests: {e}", file=sys.stderr, flush=True)
+
+
+def save_request_file(path: Path) -> None:
+    c = _client()
+    if c:
+        try:
+            c.upload_from_text(f"requests/{path.name}", path.read_text())
+        except Exception as e:
+            print(f"[store] could not save {path.name}: {e}", file=sys.stderr, flush=True)
+
+
+def restore_requests() -> None:
+    """Bring back the live requested highlights after a restart."""
+    import json
+    c = _client()
+    if not c:
+        return
+    try:
+        if not c.exists("requests/active.json"):
+            return
+        REQUESTS.mkdir(parents=True, exist_ok=True)
+        text = c.download_as_text("requests/active.json")
+        (REQUESTS / "active.json").write_text(text)
+        for e in json.loads(text):
+            if e.get("status") == "ready" and c.exists(f"requests/{e['id']}.json"):
+                (REQUESTS / f"{e['id']}.json").write_text(c.download_as_text(f"requests/{e['id']}.json"))
+        print("[store] restored requested highlights", flush=True)
+    except Exception as e:
+        print(f"[store] could not restore requests: {e}", file=sys.stderr, flush=True)

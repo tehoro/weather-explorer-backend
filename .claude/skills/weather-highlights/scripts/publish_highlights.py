@@ -3,6 +3,10 @@
 
 Usage (from the backend directory):
   uv run python .claude/skills/weather-highlights/scripts/publish_highlights.py draft.json
+  uv run python .claude/skills/weather-highlights/scripts/publish_highlights.py --request OUT.json draft.json
+
+--request validates a single requested highlight (exactly one item) and writes it to OUT.json
+instead of replacing the feed.
 
 Refuses to publish when the feed breaks the schema in references/feed-schema.md and lists every
 problem. Warnings (for example a scene outside the Open Data time range) do not block publishing.
@@ -109,12 +113,18 @@ def validate(feed: dict) -> tuple[list[str], list[str]]:
 
 
 def main():
-    if len(sys.argv) != 2:
+    args = sys.argv[1:]
+    request_out = None
+    if len(args) == 3 and args[0] == "--request":
+        request_out, args = Path(args[1]), args[2:]
+    if len(args) != 1:
         sys.exit(__doc__)
-    feed = json.loads(Path(sys.argv[1]).read_text())
+    feed = json.loads(Path(args[0]).read_text())
     feed.setdefault("schema_version", SCHEMA_VERSION)
     feed.setdefault("attribution", fields.ATTRIBUTION.format(year=datetime.now(timezone.utc).year))
     errors, warnings = validate(feed)
+    if request_out and len(feed.get("items", [])) != 1:
+        errors.append("a requested highlight must have exactly one item")
     for w in warnings:
         print("WARNING", w)
     if errors:
@@ -122,8 +132,15 @@ def main():
         for e in errors:
             print("  -", e)
         sys.exit(1)
-    OUT.mkdir(parents=True, exist_ok=True)
     text = json.dumps(feed, indent=1, ensure_ascii=False)
+    if request_out:
+        request_out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = request_out.with_suffix(".tmp")
+        tmp.write_text(text)
+        os.replace(tmp, request_out)
+        print(f"published the requested highlight -> {request_out}")
+        return
+    OUT.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%MZ")
     (OUT / f"highlights-{stamp}.json").write_text(text)
     tmp = OUT / ".latest.json.tmp"
