@@ -196,8 +196,10 @@ def feed_age_hours() -> float | None:
     return (time.time() - agent.FEED.stat().st_mtime) / 3600
 
 
+@app.get("/")
 @app.get("/api/health")
 def health():
+    # "/" too: hosts such as Replit health-check the root path before switching to a new version.
     return {"ok": True, "time": fields.iso(datetime.now(timezone.utc))}
 
 
