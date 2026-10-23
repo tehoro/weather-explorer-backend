@@ -42,6 +42,7 @@ from fastapi.responses import FileResponse, JSONResponse
 import agent
 import fields
 import scenes
+import scene_job
 import requests_store
 import store
 import tokens
@@ -89,7 +90,6 @@ class Refresh:
         self.started = time.time()
         LAST_SWEEP.parent.mkdir(parents=True, exist_ok=True)
         LAST_SWEEP.write_text(str(self.started))
-        store.save()
         self.log.clear()
         self.task = asyncio.create_task(self._run())
         return True, "Sweep started; the feed updates in a few minutes and the app is notified."
@@ -99,14 +99,15 @@ class Refresh:
 
     async def _run(self):
         async with BUSY:
+            await asyncio.to_thread(store.save)
             self.note("sweep started")
             try:
                 self.last_report = await agent.run_refresh(self.note)
             except Exception as e:
                 self.note(f"sweep failed: {e}")
             try:
-                n = await asyncio.to_thread(scenes.build)
-                self.note(f"scene data: {n} files built")
+                await scene_job.build(store.FEED)
+                self.note("scene data prepared")
             except Exception as e:
                 self.note(f"scene data failed: {e}")
             await asyncio.to_thread(store.save)
@@ -181,8 +182,9 @@ async def scheduler():
 
 async def build_scenes_now():
     try:
-        await asyncio.to_thread(scenes.build)
-        await asyncio.to_thread(store.save)
+        async with BUSY:
+            await scene_job.build(store.FEED)
+            await asyncio.to_thread(store.save)
     except Exception as e:
         print(f"[scenes] build failed: {e}", flush=True)
 
@@ -198,8 +200,11 @@ async def lifespan(app):
     if SWEEP_HOURS:
         tasks.append(asyncio.create_task(scheduler()))
     yield
+    if refresh.task is not None:
+        tasks.append(refresh.task)
     for t in tasks:
         t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 app = FastAPI(title="Weather display backend", lifespan=lifespan)
@@ -269,5 +274,5 @@ async def requests_submit(request: Request):
     except Exception:
         raise HTTPException(400, 'send {"text": "..."}')
     device = (request.headers.get("x-device-id") or request.client.host if request.client else "unknown")[:64]
-    ok, message = requests_store.submit(text, device)
+    ok, message = await asyncio.to_thread(requests_store.submit, text, device)
     return JSONResponse({"accepted": ok, "message": message}, status_code=202 if ok else 429)

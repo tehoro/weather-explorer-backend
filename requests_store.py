@@ -18,11 +18,14 @@ import os
 import re
 import secrets
 import time
+import threading
+from functools import wraps
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 
 import agent
 import scenes
+import scene_job
 import store
 
 DIR = store.REQUESTS
@@ -34,6 +37,16 @@ QUEUE_MAX = 3
 
 _by_device: dict[str, deque[float]] = defaultdict(deque)     # hashed device -> request times (memory only)
 _queue: asyncio.Queue | None = None
+_loop: asyncio.AbstractEventLoop | None = None
+_lock = threading.RLock()
+
+
+def locked(fn):
+    @wraps(fn)
+    def call(*args, **kwargs):
+        with _lock:
+            return fn(*args, **kwargs)
+    return call
 
 
 def _now() -> datetime:
@@ -63,6 +76,7 @@ def _save(entries: list[dict]) -> None:
     store.save_requests()
 
 
+@locked
 def listing() -> list[dict]:
     """Live requests, newest first. Expired ones are removed, with their scene files."""
     entries, keep = _load(), []
@@ -91,6 +105,7 @@ def clean_topic(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()[:200]
 
 
+@locked
 def submit(text: str, device: str) -> tuple[bool, str]:
     """Queue a request. Returns (accepted, a message for the viewer)."""
     topic = clean_topic(text)
@@ -105,18 +120,19 @@ def submit(text: str, device: str) -> tuple[bool, str]:
     entries = _load()
     if sum(_time(e["requested_utc"]) > _now() - timedelta(days=1) for e in entries) >= PER_DAY:
         return False, "Today's limit for requested events has been reached. Please try again tomorrow."
-    if _queue is None or _queue.qsize() >= QUEUE_MAX:
+    if _queue is None or _loop is None or sum(e["status"] == "preparing" for e in entries) >= QUEUE_MAX:
         return False, "Several requests are already being prepared. Please try again in a little while."
     entry = {"id": secrets.token_hex(4), "status": "preparing", "topic": topic, "requested_utc": _iso(_now()),
              "expires_utc": _iso(_now() + timedelta(hours=KEEP_HOURS))}
     entries.append(entry)
     _save(entries)
     times.append(now)
-    _queue.put_nowait(entry["id"])
+    _loop.call_soon_threadsafe(_queue.put_nowait, entry["id"])
     return True, ("Thanks. The event is being researched, which usually takes about 5-10 minutes. It will "
                   "appear under Requested for everyone for 48 hours.")
 
 
+@locked
 def _update(rid: str, **changes) -> None:
     entries = _load()
     for e in entries:
@@ -127,7 +143,8 @@ def _update(rid: str, **changes) -> None:
 
 async def worker(busy: asyncio.Lock) -> None:
     """Research queued requests one at a time. `busy` is shared with the sweep so they never overlap."""
-    global _queue
+    global _queue, _loop
+    _loop = asyncio.get_running_loop()
     _queue = asyncio.Queue()
     for e in _load():                     # requests interrupted by a restart
         if e["status"] == "preparing":
@@ -151,12 +168,12 @@ async def _research(entry: dict) -> None:
         report = await agent.run_request(entry["topic"], draft, out, log)
     except Exception as e:
         log(f"failed: {e}")
-        _update(rid, status="failed", message="Sorry, researching this event failed. Please try again later.")
+        await asyncio.to_thread(_update, rid, status="failed", message="Sorry, researching this event failed. Please try again later.")
         return
     draft.unlink(missing_ok=True)
     if not out.exists():
         m = re.search(r"RESULT:\s*none\s*[-:–—]\s*(.+)", report or "")
-        _update(rid, status="none", message=(m.group(1).strip()[:300] if m else "No matching weather situation was found."))
+        await asyncio.to_thread(_update, rid, status="none", message=(m.group(1).strip()[:300] if m else "No matching weather situation was found."))
         log("nothing to publish")
         return
     try:
@@ -164,11 +181,11 @@ async def _research(entry: dict) -> None:
         item = feed["items"][0]
         if not item["id"].startswith("req-"):
             item["id"] = f"req-{item['id']}"
-        await asyncio.to_thread(scenes.build_items, [item], f"req{rid}")
         out.write_text(json.dumps(feed, ensure_ascii=False, indent=1))
-        store.save_request_file(out)
-        _update(rid, status="ready")
+        await scene_job.build(out, f"req{rid}")
+        await asyncio.to_thread(store.save_request_file, out)
+        await asyncio.to_thread(_update, rid, status="ready")
         log("ready")
     except Exception as e:
         log(f"could not finish: {e}")
-        _update(rid, status="failed", message="Sorry, this event couldn't be prepared. Please try again later.")
+        await asyncio.to_thread(_update, rid, status="failed", message="Sorry, this event couldn't be prepared. Please try again later.")
