@@ -34,10 +34,11 @@ from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 import agent
 import fields
+import scenes
 import store
 import tokens
 
@@ -98,6 +99,11 @@ class Refresh:
             self.last_report = await agent.run_refresh(self.note)
         except Exception as e:
             self.note(f"sweep failed: {e}")
+        try:
+            n = await asyncio.to_thread(scenes.build)
+            self.note(f"scene data: {n} files built")
+        except Exception as e:
+            self.note(f"scene data failed: {e}")
         await asyncio.to_thread(store.save)
         for ws in list(self.listeners):
             try:
@@ -161,10 +167,20 @@ async def scheduler():
         await asyncio.sleep(1800)
 
 
+async def build_scenes_now():
+    try:
+        await asyncio.to_thread(scenes.build)
+        await asyncio.to_thread(store.save)
+    except Exception as e:
+        print(f"[scenes] build failed: {e}", flush=True)
+
+
 @asynccontextmanager
 async def lifespan(app):
     await asyncio.to_thread(store.restore)
     tasks = [asyncio.create_task(publish_address()), asyncio.create_task(prune_cache())]
+    if await asyncio.to_thread(scenes.missing):
+        tasks.append(asyncio.create_task(build_scenes_now()))   # a feed from before scene files existed
     if EVERY_H > 0:
         tasks.append(asyncio.create_task(scheduler()))
     yield
@@ -206,6 +222,16 @@ def health():
 @app.get("/api/layers", dependencies=[Depends(require("feed"))])
 def layers():
     return fields.layer_catalogue()
+
+
+@app.get("/scenes/{tag}/{name}", dependencies=[Depends(require("feed"))])
+def scene_file(tag: str, name: str):
+    """A highlight scene's ready-made field data (gzipped JSON; never changes once built)."""
+    path = scenes.path_for(f"{tag}/{name}")
+    if not path:
+        raise HTTPException(404, "no such scene file")
+    return FileResponse(path, media_type="application/json",
+                        headers={"Content-Encoding": "gzip", "Cache-Control": "public, max-age=604800, immutable"})
 
 
 @app.get("/api/highlights", dependencies=[Depends(require("feed"))])

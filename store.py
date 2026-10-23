@@ -37,8 +37,7 @@ def restore() -> None:
     c = _client()
     if c:
         for key, path in KEYS.items():
-            if path.exists():
-                continue
+            # Storage wins over any local copy: a deployment can include stale files from the workspace.
             try:
                 if c.exists(key):
                     path.write_text(c.download_as_text(key))
@@ -60,3 +59,29 @@ def save() -> None:
                 c.upload_from_text(key, path.read_text())
             except Exception as e:
                 print(f"[store] could not save {key}: {e}", file=sys.stderr, flush=True)
+
+
+def save_scenes(folder: Path) -> None:
+    """Copy a feed's scene files to storage (they are rebuilt only once per sweep)."""
+    c = _client()
+    if not c:
+        return
+    for p in folder.glob("*.json.gz"):
+        try:
+            c.upload_from_bytes(f"scenes/{folder.name}/{p.name}", p.read_bytes())
+        except Exception as e:
+            print(f"[store] could not save scene {p.name}: {e}", file=sys.stderr, flush=True)
+
+
+def restore_scene(rel: str, path: Path) -> bool:
+    """Fetch one scene file back from storage after a restart. True if it is now on disk."""
+    c = _client()
+    if not c:
+        return False
+    try:
+        data = c.download_as_bytes(f"scenes/{rel}")
+    except Exception:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return True
