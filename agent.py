@@ -9,11 +9,15 @@ import os
 from pathlib import Path
 from typing import Callable
 
+import claude_agent_sdk
 from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, TextBlock, ToolUseBlock, query
 
 BACKEND = Path(__file__).parent
 FEED = BACKEND / "data" / "highlights" / "latest.json"   # same file as store.FEED
 REFRESH_MODEL = os.environ.get("WEATHER_REFRESH_MODEL", "claude-opus-5-5")
+# Claude jobs run through a wrapper that lowers their CPU priority (see claude-low-priority.sh).
+BUNDLED_CLI = Path(claude_agent_sdk.__file__).parent / "_bundled" / "claude"
+WRAPPER = BACKEND / "claude-low-priority.sh"
 
 
 REFRESH_PROMPT = ("Run the weather-highlights skill now and publish a fresh highlights feed. "
@@ -50,6 +54,9 @@ async def _run(prompt: str, log: Callable[[str], None], max_turns: int) -> str:
         setting_sources=["project"],      # loads .claude/skills/weather-highlights
         max_turns=max_turns,
     )
+    if BUNDLED_CLI.exists() and WRAPPER.exists():
+        options.cli_path = str(WRAPPER)
+        options.env = {**options.env, "CLAUDE_REAL_CLI": str(BUNDLED_CLI)}
     report = ""
     async for msg in query(prompt=prompt, options=options):
         if isinstance(msg, AssistantMessage):
