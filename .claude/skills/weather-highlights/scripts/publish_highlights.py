@@ -54,8 +54,8 @@ def validate(feed: dict) -> tuple[list[str], list[str]]:
         if k not in feed:
             errors.append(f"missing top-level {k!r}")
     items = feed.get("items", [])
-    if not 1 <= len(items) <= 12:
-        errors.append(f"items: expected 1-12, got {len(items)}")
+    if not 1 <= len(items) <= 18:
+        errors.append(f"items: expected 1-18, got {len(items)}")
     latest = fields.latest_run()
     lo, hi = latest - timedelta(hours=72), latest + timedelta(hours=360)
     ids = set()

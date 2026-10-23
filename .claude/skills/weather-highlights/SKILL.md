@@ -1,13 +1,13 @@
 ---
 name: weather-highlights
-description: Find about ten interesting weather situations worldwide right now and in the coming week, explain why each is interesting, and give display instructions (layers, box, time window, captions) for the weather display app. Combines news, MeteoAlarm and GDACS warnings, IFS ENS probabilities and an objective scan of IFS fields, all from ECMWF Open Data. Use when asked what interesting or severe weather there is to look at, to refresh or publish the highlights feed, or for suggestions of what to explore in the display app.
+description: Find about fifteen interesting weather situations worldwide right now and in the coming week, explain why each is interesting, and give display instructions (layers, box, time window, captions) for the weather display app. Combines news, MeteoAlarm and GDACS warnings, IFS ENS probabilities and an objective scan of IFS fields, all from ECMWF Open Data. Use when asked what interesting or severe weather there is to look at, to refresh or publish the highlights feed, or for suggestions of what to explore in the display app.
 ---
 
 # Weather highlights
 
 A restricted version of the ECMWF FDR candidate sweep, aimed at **exploration and presentation**
 rather than forecast assessment. All ECMWF data comes from **Open Data** (never MARS), because the
-same app and feed must work for anyone with only Open Data access. The output is a feed of about ten situations, each with a plain
+same app and feed must work for anyone with only Open Data access. The output is a feed of about fifteen situations, each with a plain
 account of what is happening, why it is interesting to look at, the evidence, and one to four
 **scenes** telling the display app what to show and how.
 
@@ -53,11 +53,11 @@ of anything you cite — search summaries often blend in events from previous ye
   22 October 2026".
 - Two or three broad sweeps: "severe weather", "floods", "heatwave", "wildfire", with the date.
 
-Keep it bounded: about 10-20 searches. Fetch an article only to confirm a key fact.
+Keep it bounded: about 15-25 searches. Fetch an article only to confirm a key fact.
 
-## 3. Choose about ten highlights
+## 3. Choose about fifteen highlights
 
-Aim for ten (minimum five, maximum twelve). Prefer:
+Aim for fifteen (minimum five, maximum eighteen). Prefer:
 
 1. Situations with **both** a strong field signal and real-world confirmation (warnings, news).
 2. Visually rich dynamics: tropical cyclones, explosive lows, atmospheric rivers, heat domes,
