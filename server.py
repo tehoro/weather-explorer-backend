@@ -1,23 +1,23 @@
-"""Weather display backend: highlights feed, field frames and the chat agent, behind token checks.
+"""Weather Explorer server: it researches the highlights and hands them out, nothing else.
+
+The app reads the weather fields from ECMWF Open Data itself and runs its guide on the device, so
+every request here is a cheap file read and the server can serve many devices.
 
   uv run uvicorn server:app --host 0.0.0.0 --port 8000
 
 Environment:
-  ANTHROPIC_API_KEY          Claude API key (required for the agent and refresh)
+  ANTHROPIC_API_KEY          Claude API key (for the highlights sweep)
   HIGHLIGHTS_EVERY_HOURS     rebuild the highlights feed on this cadence (0 = only on request)
   SWEEP_MIN_HOURS            minimum gap between sweeps, however they are started (default 6)
-  AGENT_TURNS_PER_HOUR       chat limit per device (default 60)
   DISCOVERY_GIST_ID          GitHub gist the backend keeps updated with its current tunnel address,
                              so installed apps find it with no setup (needs the gh CLI logged in)
 
 Endpoints (Authorization: Bearer <token>; scope in brackets):
   GET  /api/health                         no token
-  GET  /api/layers                  [feed] layer catalogue
   GET  /api/highlights              [feed] the highlights feed (latest.json) with its age
+  GET  /scenes/<tag>/<file>         [feed] a highlight scene's ready-made field data (gzipped JSON)
   GET  /api/highlights/status       [feed] whether a sweep is running, last log lines
   POST /api/highlights/refresh      [agent] start a sweep now (429 if one ran in the last 6 h)
-  GET  /api/fields?layer=&bbox=w,s,e,n&start=&end=&max_px=&max_frames=   [data]
-  WS   /ws/agent                    [agent] chat; the token may also be sent as ?token=
 """
 from __future__ import annotations
 
@@ -28,11 +28,11 @@ import subprocess
 import tempfile
 import time
 import urllib.request
-from collections import defaultdict, deque
+from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -44,21 +44,19 @@ import tokens
 
 # On Replit the backend runs unattended, so rebuild the feed twice a day unless told otherwise.
 EVERY_H = float(os.environ.get("HIGHLIGHTS_EVERY_HOURS", "12" if store.ON_REPLIT else "0"))
-TURNS_PER_HOUR = int(os.environ.get("AGENT_TURNS_PER_HOUR", "60"))
 SWEEP_MIN_H = float(os.environ.get("SWEEP_MIN_HOURS", "6"))
 GIST_ID = os.environ.get("DISCOVERY_GIST_ID", "112fb3a1ba5a2bb8e842f5ea99244b5f")
 LAST_SWEEP = store.LAST_SWEEP
 
 
 class Refresh:
-    """At most one background sweep at a time; connected apps hear when the feed changes."""
+    """At most one background sweep at a time."""
 
     def __init__(self):
         self.task: asyncio.Task | None = None
         self.log: deque[str] = deque(maxlen=40)
         self.started: float | None = None
         self.last_report = ""
-        self.listeners: set[WebSocket] = set()
 
     def note(self, line: str):
         self.log.append(f"{datetime.now(timezone.utc):%H:%M:%S} {line}")
@@ -105,11 +103,6 @@ class Refresh:
         except Exception as e:
             self.note(f"scene data failed: {e}")
         await asyncio.to_thread(store.save)
-        for ws in list(self.listeners):
-            try:
-                await ws.send_json({"type": "highlights_updated"})
-            except Exception:
-                self.listeners.discard(ws)
 
     def status(self) -> dict:
         return {"running": bool(self.task and not self.task.done()), "started": self.started,
@@ -219,11 +212,6 @@ def health():
     return {"ok": True, "time": fields.iso(datetime.now(timezone.utc))}
 
 
-@app.get("/api/layers", dependencies=[Depends(require("feed"))])
-def layers():
-    return fields.layer_catalogue()
-
-
 @app.get("/scenes/{tag}/{name}", dependencies=[Depends(require("feed"))])
 def scene_file(tag: str, name: str):
     """A highlight scene's ready-made field data (gzipped JSON; never changes once built)."""
@@ -254,85 +242,3 @@ async def highlights_refresh():
     status = refresh.status()
     return JSONResponse({"started": ok, "message": message, "next_allowed": status["next_allowed"]},
                         status_code=202 if ok else 429)
-
-
-# Wide, many-frame requests decode whole global fields; a few at a time keeps memory in bounds
-# on a small server (the rest wait their turn).
-_field_slots = asyncio.Semaphore(int(os.environ.get("FIELD_CONCURRENCY", "3")))
-
-
-@app.get("/api/fields", dependencies=[Depends(require("data"))])
-async def get_fields(layer: str, bbox: str, start: str | None = None, end: str | None = None,
-                     max_px: int = Query(256, ge=32, le=512), max_frames: int = Query(40, ge=1, le=80)):
-    if layer not in fields.LAYERS:
-        raise HTTPException(400, f"unknown layer; choose from {list(fields.LAYERS)}")
-    try:
-        async with _field_slots:
-            return await asyncio.to_thread(fields.get_frames, layer, bbox, start, end, max_px, max_frames)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    except RuntimeError as e:
-        raise HTTPException(503, str(e))
-
-
-_turns: dict[str, deque[float]] = defaultdict(deque)
-
-
-def allow_turn(who: str) -> bool:
-    q, now = _turns[who], time.time()
-    while q and now - q[0] > 3600:
-        q.popleft()
-    if len(q) >= TURNS_PER_HOUR:
-        return False
-    q.append(now)
-    return True
-
-
-@app.websocket("/ws/agent")
-async def ws_agent(ws: WebSocket):
-    token = bearer(ws) or ws.query_params.get("token")  # type: ignore[arg-type]
-    rec = tokens.validate(token, "agent")
-    if not rec:
-        await ws.close(code=4401)
-        return
-    await ws.accept()
-    send_lock = asyncio.Lock()
-
-    async def send(msg: dict):
-        async with send_lock:
-            await ws.send_json(msg)
-
-    session = agent.ChatSession(send, refresh.start)
-    device = (ws.headers.get("x-device-id") or "unknown")[:64]   # the shared app key is shared, so limit per device
-    refresh.listeners.add(ws)
-    inbox: asyncio.Queue[str] = asyncio.Queue()
-
-    async def worker():
-        await send({"type": "ready"})   # the Claude process starts with the first question
-        while True:
-            prompt = await inbox.get()
-            if not allow_turn(f'{rec["owner"]}/{device}'):
-                await send({"type": "assistant", "text": "Hourly chat limit reached on this device; try again later."})
-                await send({"type": "done"})
-                continue
-            try:
-                await session.ask(prompt)
-            except Exception as e:
-                await send({"type": "error", "text": str(e)})
-                await send({"type": "done"})
-
-    task = asyncio.create_task(worker())
-    try:
-        while True:
-            msg = await ws.receive_json()
-            if msg.get("type") == "user" and msg.get("text", "").strip():
-                await inbox.put(msg["text"][:4000])
-            elif msg.get("type") == "state":
-                session.state.clear()
-                session.state.update(msg.get("state", {}))
-    except WebSocketDisconnect:
-        pass
-    finally:
-        refresh.listeners.discard(ws)
-        task.cancel()
-        await session.close()
