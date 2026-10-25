@@ -8,6 +8,6 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --no-dev
 COPY . .
-ENV SWEEP_HOURS_UTC=9,21
+ENV SWEEP_HOURS_UTC=3,15
 EXPOSE 8000
 CMD ["uv", "run", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
