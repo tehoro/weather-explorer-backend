@@ -27,6 +27,7 @@ import agent
 import scenes
 import scene_job
 import store
+import web_notify
 
 DIR = store.REQUESTS
 ACTIVE = DIR / "active.json"
@@ -186,6 +187,7 @@ async def _research(entry: dict) -> None:
         await asyncio.to_thread(store.save_request_file, out)
         await asyncio.to_thread(_update, rid, status="ready")
         log("ready")
+        await web_notify.notify(f"request {rid}")
     except Exception as e:
         log(f"could not finish: {e}")
         await asyncio.to_thread(_update, rid, status="failed", message="Sorry, this event couldn't be prepared. Please try again later.")

@@ -13,6 +13,8 @@ Environment:
   REQUEST_HOURS              how long a requested highlight is listed (default 48)
   DISCOVERY_GIST_ID          GitHub gist the backend keeps updated with its current tunnel address,
                              so installed apps find it with no setup (needs the gh CLI logged in)
+  WEB_DISPATCH_TOKEN         GitHub token that lets the backend tell the public web viewer to sync
+                             after each sweep or requested highlight (see web_notify.py); optional
 
 Endpoints (Authorization: Bearer <token>; scope in brackets):
   GET  /api/health                         no token
@@ -46,6 +48,7 @@ import scene_job
 import requests_store
 import store
 import tokens
+import web_notify
 
 # Sweeps run at fixed times, after the 00 and 12 UTC runs are on Open Data (about 08 and 20 UTC).
 SWEEP_HOURS = sorted(int(h) for h in os.environ.get("SWEEP_HOURS_UTC", "9,21" if store.ON_REPLIT else "").split(",") if h.strip())
@@ -111,6 +114,7 @@ class Refresh:
             except Exception as e:
                 self.note(f"scene data failed: {e}")
             await asyncio.to_thread(store.save)
+            await web_notify.notify("sweep")
 
     def status(self) -> dict:
         return {"running": bool(self.task and not self.task.done()), "started": self.started,
