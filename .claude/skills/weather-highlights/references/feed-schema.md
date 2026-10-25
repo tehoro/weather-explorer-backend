@@ -27,7 +27,7 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
   "summary": "Two or three plain sentences: what, where, how severe, what happens next.",
   "why_interesting": "The scientific or visual hook: why someone exploring the data would find this worth a look.",
   "evidence": [
-    {"kind": "ensemble", "text": "ENS: 100 % chance of gusts >25 m/s over western Ireland, days 1-4 (00 UTC 22 Oct)"},
+    {"kind": "ensemble", "text": "ENS: 100 % chance of gusts >25 m/s over western Ireland, days 1-4 (00 UTC 22 Oct run)"},
     {"kind": "field", "text": "HRES low 949 hPa near 59N 5W at 00 UTC 25 Oct"},
     {"kind": "warning", "text": "Met Éireann orange wind warning", "url": "https://..."},
     {"kind": "news", "text": "Headline — Publisher, 22 Oct 2026", "url": "https://..."}
@@ -50,6 +50,13 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
   `60–80 m/s`. `km/h`, `mph`, `kt` and `°F` are also recognised. Give each value once (or as
   `60 m/s (134 mph)`), not as prose like "sixty metres per second". The app rewrites recognised
   measurements in each viewer's units (mph, km/h, °F, inches...). Pressure stays in hPa.
+- **Times in text**: write every specific time in UTC **with its date**, hour first: `18 UTC 24 Oct`,
+  `06:30 UTC 26 Oct`, ranges as `06-12 UTC 26 Oct` (a range past midnight is dated by its start:
+  `21-03 UTC 27 Oct`). Never give a bare `06 UTC` or a weekday alone ("Sunday 21:00"), and convert
+  warning times quoted in local time (BST, CET, JST...) to UTC with the date. The web viewer rewrites
+  dated times in each viewer's own time zone. A model run is named with the word `run` after it,
+  `00 UTC 22 Oct run`, so it is left as written. Loose periods ("overnight", "early next week")
+  are fine where no exact time is meant.
 - `evidence`: `warning`, `news`, `official` and `observation` items **must** carry a URL that came
   back from your own searches or fetches. `ensemble` and `field` items cite the scan output.
 
