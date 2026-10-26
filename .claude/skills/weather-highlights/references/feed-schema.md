@@ -87,9 +87,15 @@ setting → hazard → why the forecast system flags it.
 ```
 
 - `fill` (required): one of `mslp`, `wind10`, `gust`, `t2m`, `precip`, `tcwv`, `jet250`, `z500`,
-  `ens_rain20`, `ens_rain50`, `ens_gust15`, `ens_gust25` (ENS probabilities, %).
+  `ens_rain20`, `ens_rain50`, `ens_gust15`, `ens_gust25` (ENS probabilities, %), and:
+  - `ptype`: precipitation type (rain, snow, freezing rain, wet snow, rain-and-snow, ice pellets,
+    freezing drizzle; light/moderate/heavy by rate). Instantaneous, so start the window at a run time.
+  - `wind850`: wind at 850 hPa (~1.5 km): low-level jets, warm conveyor belts, monsoon flow.
+  - `t850`: temperature at 850 hPa: air masses, cold-air outbreaks, warm sectors (no daily cycle).
+  - `cape`: storm energy (most-unstable CAPE, J/kg): where thunderstorms can be strong.
+  - `olr`: cloud tops from outgoing longwave radiation, a satellite-like view (white = cold, high cloud).
 - `contours` (optional): `mslp` (isobars every 4 hPa) or `z500` (every 6 dam).
-- `vectors` (optional): `wind10` or `jet250` (direction arrows).
+- `vectors` (optional): `wind10`, `wind850` or `jet250` (moving streaks).
 - Playback speed is the viewer's choice in the app (default 1 frame per second); scenes don't set it.
 - `focus`: up to 5 labelled points to mark (cities, the storm centre at peak).
 - `captions`: up to 6 short narration lines, each shown from its time onwards.
@@ -107,8 +113,10 @@ setting → hazard → why the forecast system flags it.
 | Heatwave / cold spell | `z500` fill + contours (ridge/trough), continental box | `t2m` fill, 5-7 days so the diurnal cycle pulses | — |
 | Jet-stream story | `jet250` fill + `jet250` vectors, hemispheric box | `mslp` fill + contours under the jet exit | — |
 | Tip jet, fall or gap wind (explainer) | `mslp` fill + contours, synoptic box showing the pressure pattern that drives it | `wind10` fill + `wind10` vectors + `mslp` contours on the scan's `scene_bbox`, 1-3 days, 3-hourly | `gust` fill, same box |
-| Organised tropical or summer convection | `tcwv` fill + `mslp` contours, wide box (the moist air mass, monsoon or ITCZ) | `precip` fill on the storm cluster, 1-2 days, 3-hourly so the cells pulse | — |
-| Freezing rain / ice | `t2m` fill + `mslp` contours (warm air over cold: the setting) | `precip` fill on the area, captions saying where it falls as freezing rain | — |
+| Organised tropical or summer convection | `olr` (cloud tops), wide box: the storm clusters as a satellite would see them | `cape` fill + `mslp` contours: the fuel, 1-2 days | `precip` fill on the cluster, 3-hourly so the cells pulse |
+| Freezing rain / ice, snow events | `t850` fill + `mslp` contours (warm air over cold: the setting) | `ptype` fill + `mslp` contours on the area, 1-2 days | — |
+| Low-level jet (explainer) | `wind850` fill + `wind850` vectors, regional box, 2 nights so the night-time peaks show | `cape` or `precip` fill where the jet's moisture feeds storms | — |
+| Tropical cyclone, alternative opener | `olr` fill + `mslp` contours: the eye and spiral bands like a satellite loop | — | — |
 
 Rules of thumb:
 - Boxes narrower than ~50° are drawn from the 0.1° data (~10 km), wider ones from 0.25°: zoom

@@ -95,8 +95,7 @@ need no news coverage: the evidence is the field itself (`field` evidence items 
 - `why_interesting` explains the mechanism in plain words (the scan's `note` is a starting
   point): what forces the wind, why it is so strong or so local, where else it happens.
 - Rank explainers after the main highlights.
-- Low-level jets are found but can't be shown yet (the 850 hPa wind layer isn't available in
-  highlights): leave them out for now.
+- Low-level jets are shown with the `wind850` layer (850 hPa wind with moving streaks).
 
 ## 4. Write the scenes
 
