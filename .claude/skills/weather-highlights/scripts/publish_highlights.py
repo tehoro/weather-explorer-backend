@@ -30,7 +30,9 @@ HAZARDS = {"wind", "rain", "flood", "snow", "ice", "heat", "cold", "tropical-cyc
            "drought", "fire-weather", "fog", "dust", "coastal", "other"}
 STATUSES = {"observed", "ongoing", "forecast"}
 CONTOUR_LAYERS = {"mslp", "z500"}
-VECTOR_LAYERS = {"wind10", "jet250"}
+VECTOR_LAYERS = {"wind10", "jet250", "wind850"}
+KINDS = {"highlight", "explainer"}
+MAX_EXPLAINERS = 3
 
 
 def t(s, where, errors):
@@ -63,6 +65,8 @@ def validate(feed: dict) -> tuple[list[str], list[str]]:
     latest = fields.latest_run()
     lo, hi = latest - timedelta(hours=72), latest + timedelta(hours=360)
     ids = set()
+    if sum(1 for it in items if it.get("kind") == "explainer") > MAX_EXPLAINERS:
+        errors.append(f"at most {MAX_EXPLAINERS} explainer items")
     for i, it in enumerate(items):
         w = f"items[{i}] ({it.get('id', '?')})"
         for k in ("id", "title", "hazards", "status", "where", "when", "summary", "why_interesting", "evidence", "scenes"):
@@ -73,6 +77,8 @@ def validate(feed: dict) -> tuple[list[str], list[str]]:
         ids.add(it.get("id"))
         if not set(it.get("hazards", [])) <= HAZARDS:
             errors.append(f"{w}: unknown hazards {sorted(set(it.get('hazards', [])) - HAZARDS)}; allowed {sorted(HAZARDS)}")
+        if it.get("kind", "highlight") not in KINDS:
+            errors.append(f"{w}: kind must be one of {sorted(KINDS)} (or omitted for a normal highlight)")
         if it.get("status") not in STATUSES:
             errors.append(f"{w}: status must be one of {sorted(STATUSES)}")
         where = it.get("where", {})
@@ -94,12 +100,14 @@ def validate(feed: dict) -> tuple[list[str], list[str]]:
             errors.append(f"{w}: expected 1-4 scenes")
         for j, sc in enumerate(scenes):
             sw = f"{w}.scenes[{j}]"
-            if sc.get("fill") not in fields.LAYERS:
-                errors.append(f"{sw}: fill {sc.get('fill')!r} not in {sorted(fields.LAYERS)}")
+            if sc.get("fill") not in fields.APP_READY:
+                why = " (not available in highlights yet: the iPhone app can't show it)" if sc.get("fill") in fields.LAYERS else ""
+                errors.append(f"{sw}: fill {sc.get('fill')!r}{why}; use one of {sorted(fields.APP_READY)}")
             if sc.get("contours") not in (None, *CONTOUR_LAYERS):
                 errors.append(f"{sw}: contours must be one of {sorted(CONTOUR_LAYERS)} or omitted")
-            if sc.get("vectors") not in (None, *VECTOR_LAYERS):
-                errors.append(f"{sw}: vectors must be one of {sorted(VECTOR_LAYERS)} or omitted")
+            vectors_ok = sorted(VECTOR_LAYERS & fields.APP_READY)
+            if sc.get("vectors") not in (None, *vectors_ok):
+                errors.append(f"{sw}: vectors must be one of {vectors_ok} or omitted")
             check_bbox(sc.get("bbox"), sw, errors)
             s0, s1 = t(sc.get("start", ""), f"{sw}.start", errors), t(sc.get("end", ""), f"{sw}.end", errors)
             if s0 and s1:

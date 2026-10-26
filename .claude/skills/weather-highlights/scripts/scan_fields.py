@@ -10,6 +10,12 @@ Signals (each is evidence for Claude to weigh, not a verdict):
                Tropical lows (|lat| < 30) are flagged as possible tropical cyclones.
   * rain24   - 24 h precipitation totals >= 100 mm in IFS HRES.
   * gust     - 10 m gusts >= 35 m/s in IFS HRES (3-hourly maxima, days 0-5).
+  * explainers - textbook local winds at known places, for "explainer" highlights: Greenland tip
+               jets, fall and gap winds (bora, mistral, piteraq, Tehuantepecer, Papagayo, Santa
+               Ana, Antarctic katabatics) and low-level jets (Great Plains, Somali, South American,
+               Caribbean), each when strong enough in IFS HRES, days 0-5.
+  * convection - organised deep convection anywhere: CAPE >= 2500 J/kg with heavy rain falling.
+  * freezing - freezing rain or freezing drizzle falling over a sizeable area.
 
 Usage (from the backend directory):
   uv run python .claude/skills/weather-highlights/scripts/scan_fields.py --out data/highlights/scan.json
@@ -260,6 +266,191 @@ def scan_gusts(run: datetime, threshold: float) -> list[dict]:
     return out[:25]
 
 
+# ---- Explainers: local winds at known places -------------------------------------------------
+# (name, kind, box [w, s, e, n], wind-from sector [deg from, deg to], threshold m/s, level, note)
+# level "10m" uses 10 m wind; "850" uses 850 hPa wind with the 10 m wind much weaker (a jet aloft).
+LOCAL_WINDS = [
+    ("Greenland tip jet", "tip jet", [-46, 57.5, -38, 61.5], (240, 320), 25, "10m",
+     "Westerly flow forced round Cape Farewell accelerates into a narrow jet off Greenland's southern tip."),
+    ("Greenland reverse tip jet", "tip jet", [-50, 57, -42, 61], (30, 120), 25, "10m",
+     "Easterly flow round Cape Farewell: the 'reverse' (easterly) tip jet."),
+    ("Piteraq (East Greenland)", "katabatic", [-38.5, 64.5, -35.5, 66.5], (270, 30), 20, "10m",
+     "Cold air draining off the Greenland ice sheet into Ammassalik fjord: a violent katabatic wind."),
+    ("Bora (Adriatic)", "fall wind", [13.5, 43.0, 16.5, 45.6], (0, 90), 15, "10m",
+     "Cold north-easterly air spilling over the Dinaric Alps onto the Adriatic coast in strong gusts."),
+    ("Mistral (Gulf of Lion)", "gap wind", [3.5, 41.5, 6.5, 43.3], (300, 30), 15, "10m",
+     "Northerly air funnelled down the Rhône valley between the Alps and the Massif Central."),
+    ("Novaya Zemlya bora", "fall wind", [52, 69.5, 58, 72.5], (45, 135), 20, "10m",
+     "Cold air from the Kara Sea plunging over Novaya Zemlya's mountains onto the Barents Sea."),
+    ("Tehuantepecer", "gap wind", [-96, 13.5, -94, 16], (315, 45), 15, "10m",
+     "A cold surge from North America squeezed through the Chivela Pass onto the Gulf of Tehuantepec."),
+    ("Papagayo jet", "gap wind", [-88.5, 10, -86, 12], (30, 120), 12, "10m",
+     "Trade winds accelerated through the gap in Central America's mountains at Lake Nicaragua."),
+    ("Santa Ana winds", "fall wind", [-119.5, 33.2, -117, 34.5], (0, 110), 12, "10m",
+     "Dry offshore winds descending from the Great Basin through southern California's passes."),
+    ("Adélie Land katabatic", "katabatic", [138, -68, 148, -65.5], (120, 210), 22, "10m",
+     "Cold, dense air draining off the Antarctic plateau: some of the windiest coasts on Earth."),
+    ("Terra Nova Bay katabatic", "katabatic", [162, -75.5, 166.5, -74], (230, 320), 22, "10m",
+     "Katabatic outflow from the Antarctic plateau funnelled down Reeves Glacier."),
+    ("Great Plains low-level jet", "low-level jet", [-102, 27, -94, 40], (135, 225), 18, "850",
+     "A southerly jet a kilometre up at night, feeding Gulf moisture into Plains thunderstorms."),
+    ("Somali (Findlater) jet", "low-level jet", [45, 0, 60, 15], (180, 270), 18, "850",
+     "The cross-equatorial jet off East Africa that carries moisture into the Indian monsoon."),
+    ("South American low-level jet", "low-level jet", [-66, -26, -58, -14], (315, 45), 18, "850",
+     "A northerly jet east of the Andes carrying Amazon moisture towards the storms of the La Plata basin."),
+    ("Caribbean low-level jet", "low-level jet", [-80, 11, -70, 16], (45, 135), 18, "850",
+     "An easterly jet over the Caribbean Sea, strongest in July and February."),
+]
+
+
+def _from_dir(u: np.ndarray, v: np.ndarray) -> np.ndarray:
+    return (np.degrees(np.arctan2(-u, -v)) + 360) % 360       # meteorological: where it blows from
+
+
+def _in_sector(d: np.ndarray, sector: tuple[float, float]) -> np.ndarray:
+    a, b = sector
+    return (d >= a) & (d <= b) if a <= b else (d >= a) | (d <= b)
+
+
+def _box_cells(grid: fields.Grid, box) -> tuple[np.ndarray, np.ndarray]:
+    w, s_, e, n = box
+    rows = np.nonzero((grid.lats >= s_) & (grid.lats <= n))[0]
+    lon = ((grid.lons - w) % 360)
+    cols = np.nonzero(lon <= (e - w) % 360)[0]
+    return rows, cols
+
+
+def _fetch_all(run, jobs):
+    """Download (param, step, levelist) fields in parallel; returns {job: path}."""
+    with ThreadPoolExecutor(8) as ex:
+        paths = list(ex.map(lambda j: fields.opendata_file(run, j[0], j[1], j[2]), jobs))
+    return dict(zip(jobs, paths))
+
+
+def scan_local_winds(run: datetime) -> list[dict]:
+    """Textbook local winds at the places above, when strong enough: 10 m wind 6-hourly over days
+    0-5; 850 hPa wind 12-hourly at 06 and 18 UTC (night over the Americas, when their jets peak)."""
+    steps = list(range(0, 121, 6))
+    steps850 = {s for s in steps if (run.hour + s) % 24 in (6, 18)}
+    jobs = [(p, s, None) for s in steps for p in ("10u", "10v")] + [(p, s, 850) for s in sorted(steps850) for p in ("u", "v")]
+    paths = _fetch_all(run, jobs)
+    best: dict[str, dict] = {}
+    for step in steps:
+        try:
+            u10, grid = fields.read_one(paths[("10u", step, None)])
+            v10, _ = fields.read_one(paths[("10v", step, None)])
+            u85 = v85 = None
+            if step in steps850:
+                u85, _ = fields.read_one(paths[("u", step, 850)])
+                v85, _ = fields.read_one(paths[("v", step, 850)])
+        except Exception:
+            continue
+        for name, kind, box, sector, thr, level, note in LOCAL_WINDS:
+            if level == "850" and u85 is None:
+                continue
+            rows, cols = _box_cells(grid, box)
+            sub = np.ix_(rows, cols)
+            s10 = np.hypot(u10[sub], v10[sub])
+            if level == "850":
+                u, v = u85[sub], v85[sub]
+                spd = np.hypot(u, v)
+                ok = (spd >= thr) & (spd >= 1.8 * s10)        # strong aloft, much weaker at the surface
+            else:
+                u, v = u10[sub], v10[sub]
+                spd = s10
+                ok = spd >= thr
+            ok &= _in_sector(_from_dir(u, v), sector)
+            if not ok.any():
+                continue
+            i = np.argmax(np.where(ok, spd, -1))
+            y, x = np.unravel_index(i, spd.shape)
+            t = fields.iso(run + step * H)
+            b = best.setdefault(name, {"signal": "explainer", "phenomenon": name, "kind": kind, "note": note,
+                                       "level": "850 hPa wind (with weak surface wind)" if level == "850" else "10 m wind",
+                                       "first": t, "steps": 0, "peak_ms": 0.0, "units": "m/s"})
+            b["last"] = t
+            b["steps"] += 1
+            if spd[y, x] > b["peak_ms"]:
+                b.update(peak_ms=round(float(spd[y, x]), 1), time_of_peak=t,
+                         at=[round(float(grid.lats[rows[y]]), 2), round(float(grid.lons[cols[x]]), 2)],
+                         from_deg=int(_from_dir(u[y, x], v[y, x])))
+            w, s_, e, n = box
+            b["scene_bbox"] = [w - 8, s_ - 6, e + 8, n + 6]
+            b["run"] = fields.iso(run)
+    return sorted(best.values(), key=lambda d: -d["peak_ms"])
+
+
+def _dilate(mask: np.ndarray, r: int) -> np.ndarray:
+    out = mask.copy()
+    for dy in range(-r, r + 1):
+        for dx in range(-r, r + 1):
+            out |= np.roll(np.roll(mask, dy, axis=0), dx, axis=1)
+    return out
+
+
+def scan_convection(run: datetime, cape: float = 2000, rate: float = 10, min_area_km2: float = 30000) -> list[dict]:
+    """Organised deep convection anywhere (tropics and both hemispheres): clusters of heavy rain
+    (>= rate mm/h, cells within ~50 km joined) at least min_area_km2 across, with CAPE >= cape J/kg
+    in or beside them (storms use up the CAPE where they rain). 12-hourly over days 0-3."""
+    steps = list(range(12, 73, 12))
+    paths = _fetch_all(run, [(p, s, None) for s in steps for p in ("mucape", "tprate")])
+    out = []
+    for step in steps:
+        try:
+            c, grid = fields.read_one(paths[("mucape", step, None)])
+            r, _ = fields.read_one(paths[("tprate", step, None)])
+        except Exception:
+            continue
+        c, r = c[::2, ::2], r[::2, ::2] * 3600
+        g = fields.Grid(grid.lats[::2], grid.lons[::2])
+        for cells in label(_dilate(r >= rate, 1)):
+            a = area_km2(cells, g)
+            if a < min_area_km2:
+                continue
+            region = np.zeros_like(r, bool)
+            region[cells[:, 0], cells[:, 1]] = True
+            near = _dilate(region, 2)                         # within about 100 km
+            peak_cape = float(c[near].max())
+            if peak_cape < cape:
+                continue
+            d = describe(cells, r, g)
+            out.append({"signal": "convection", "what": "organised deep convection (heavy rain with high CAPE)",
+                        "units": "mm/h", "valid": fields.iso(run + step * H), "area_km2": round(a), **d,
+                        "peak_cape_j_kg": round(peak_cape),
+                        "band": "tropics" if abs(d["at"][0]) < 23.5 else ("northern hemisphere" if d["at"][0] > 0 else "southern hemisphere"),
+                        "run": fields.iso(run)})
+    out.sort(key=lambda d: -d["area_km2"])
+    return out[:15]
+
+
+def scan_freezing(run: datetime, min_area_km2: float = 5000) -> list[dict]:
+    """Freezing rain or freezing drizzle falling (precipitation type 3 or 12, >= 0.1 mm/h) over
+    land and coasts (not Antarctica), 6-hourly, days 0-3."""
+    steps = list(range(0, 73, 6))
+    paths = _fetch_all(run, [(p, s, None) for s in steps for p in ("ptype", "tprate")])
+    out, land = [], None
+    for step in steps:
+        try:
+            t, grid = fields.read_one(paths[("ptype", step, None)])
+            r, _ = fields.read_one(paths[("tprate", step, None)])
+        except Exception:
+            continue
+        if land is None:
+            land = land_and_coast(grid)
+        code, rr = np.rint(t), r * 3600
+        mask = np.isin(code, (3, 12)) & (rr >= 0.1) & land
+        for cells in label(mask):
+            a = area_km2(cells, grid)
+            if a < min_area_km2:
+                continue
+            d = describe(cells, rr, grid)
+            kinds = sorted({"freezing rain" if k == 3 else "freezing drizzle" for k in code[cells[:, 0], cells[:, 1]].tolist()})
+            out.append({"signal": "freezing", "what": " and ".join(kinds), "units": "mm/h", "valid": fields.iso(run + step * H),
+                        "area_km2": round(a), **d, "run": fields.iso(run)})
+    out.sort(key=lambda d: -d["area_km2"])
+    return out[:15]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ens-threshold", type=float, default=50, help="probability %% (default 50)")
@@ -276,7 +467,10 @@ def main():
     for name, fn in [("ensemble", lambda: scan_ensemble(a.ens_threshold, a.ens_min_area_km2)),
                      ("lows", lambda: (scan_lows(run), {})),
                      ("rain24", lambda: (scan_rain(run, a.rain_mm), {})),
-                     ("gusts", lambda: (scan_gusts(run, a.gust_ms), {}))]:
+                     ("gusts", lambda: (scan_gusts(run, a.gust_ms), {})),
+                     ("explainers", lambda: (scan_local_winds(run), {})),
+                     ("convection", lambda: (scan_convection(run), {})),
+                     ("freezing", lambda: (scan_freezing(run), {}))]:
         try:
             items, src = fn()
             result[name] = items
@@ -290,7 +484,7 @@ def main():
     text = json.dumps(result, indent=1)
     if a.out:
         Path(a.out).write_text(text)
-        counts = {k: len(result[k]) for k in ("ensemble", "lows", "rain24", "gusts")}
+        counts = {k: len(result[k]) for k in ("ensemble", "lows", "rain24", "gusts", "explainers", "convection", "freezing")}
         print(f"wrote {a.out}: {counts}; errors: {errors or 'none'}")
     else:
         print(text)

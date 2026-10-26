@@ -62,9 +62,25 @@ class Layer:
     needs_interval: bool = False      # accumulated or "since previous post-processing" fields
     source: str = "oper"              # "oper" (HRES) or "ens" (ENS probabilities, 24 h windows)
     description: str = ""
+    accumulated: bool = False         # accumulated since the run started: needs the previous step too
+    categories: list[tuple[int, str, str]] | None = None   # categorical: (value, label, #RRGGBBAA)
+    app_ready: bool = True            # False: built and shown on the web, but not yet allowed in
+                                      # highlights (the current iPhone app can't rebuild it itself)
 
 
 T = "#00000000"  # transparent
+
+# Precipitation type: ECMWF code (table 4.201) x 10 + intensity (1 light < 1 mm/h <= 2 moderate
+# < 4 mm/h <= 3 heavy); 0 = nothing falling (rate below 0.1 mm/h).
+PTYPE_KINDS = [(1, "Rain", ("#a1d99bcc", "#41ab5ddd", "#006d2cee")),
+               (3, "Freezing rain", ("#fcbba1dd", "#ef3b2cee", "#a50f15ff")),
+               (5, "Snow", ("#c6dbefcc", "#6baed6dd", "#2171b5ee")),
+               (6, "Wet snow", ("#c7e9e9cc", "#66c2a4dd", "#238b8aee")),
+               (7, "Rain and snow", ("#dadaebcc", "#9e9ac8dd", "#6a51a3ee")),
+               (8, "Ice pellets", ("#fee6cecc", "#fd8d3cdd", "#d94801ee")),
+               (12, "Freezing drizzle", ("#fde0ddcc", "#f768a1dd", "#ae017eee"))]
+PTYPE = [(code * 10 + i, f"{name}, {level}", colours[i - 1])
+         for code, name, colours in PTYPE_KINDS for i, level in ((1, "light"), (2, "moderate"), (3, "heavy"))]
 PROB = [(5, T), (10, "#c6dbef66"), (25, "#fed976bb"), (50, "#fd8d3cdd"), (75, "#e31a1cee"), (95, "#ae017eff"), (100, "#49006aff")]
 LAYERS: dict[str, Layer] = {l.id: l for l in [
     Layer("mslp", "Mean sea level pressure", "hPa", ["msl"],
@@ -81,7 +97,7 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
           description="Air temperature at 2 m."),
     Layer("precip", "Precipitation rate", "mm/h", ["tp"],
           [(0.1, T), (0.3, "#a6dba088"), (1, "#41b6c4cc"), (2, "#2c7fb8dd"), (5, "#fed976ee"), (10, "#fd8d3cff"), (20, "#e31a1cff"), (50, "#ae017eff")],
-          needs_interval=True, description="Mean precipitation rate over the interval ending at the valid time."),
+          needs_interval=True, accumulated=True, description="Mean precipitation rate over the interval ending at the valid time."),
     Layer("tcwv", "Total column water vapour", "kg/m²", ["tcwv"],
           [(15, T), (25, "#c7e9c066"), (35, "#74c476aa"), (45, "#fed976cc"), (55, "#fd8d3cdd"), (65, "#e31a1cee"), (75, "#7a0177ff")],
           description="Moisture plumes: atmospheric rivers and tropical moisture."),
@@ -91,6 +107,27 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
     Layer("z500", "500 hPa geopotential height", "dam", ["gh"],
           [(480, "#3b0f70bb"), (520, "#2c7fb8aa"), (552, "#7fcdbb88"), (568, "#fee39188"), (584, "#f46d43aa"), (600, "#a50026bb")],
           levelist=500, contour_interval=6, description="Mid-tropospheric troughs and ridges, contoured every 6 dam."),
+    # Added October 2026 (held back from highlights until the iPhone app knows them).
+    Layer("wind850", "850 hPa wind", "m/s", ["u", "v"],
+          [(10, T), (15, "#c6dbef77"), (20, "#6baed6bb"), (25, "#31a354cc"), (30, "#fed976dd"), (40, "#fd8d3cee"), (50, "#e31a1cff")],
+          levelist=850, vectors=("u", "v"), app_ready=False,
+          description="Wind about 1.5 km up: low-level jets, warm conveyor belts and monsoon flow."),
+    Layer("t850", "850 hPa temperature", "°C", ["t"],
+          [(-40, "#3b0f70ee"), (-30, "#2c7fb8ee"), (-20, "#41b6c4dd"), (-10, "#a1dab4cc"), (0, "#ffffcc99"), (10, "#fed976cc"), (20, "#fd8d3cdd"), (30, "#e31a1cee")],
+          levelist=850, app_ready=False,
+          description="Temperature about 1.5 km up, free of the daily cycle: air masses, cold outbreaks, warm sectors."),
+    Layer("cape", "Storm energy (CAPE)", "J/kg", ["mucape"],
+          [(250, T), (500, "#fee391aa"), (1000, "#fec44fcc"), (2000, "#fe9929dd"), (3000, "#ec7014ee"), (4000, "#cc4c02ff"), (6000, "#8c2d04ff")],
+          app_ready=False,
+          description="Most-unstable convective available potential energy: the fuel for thunderstorms."),
+    Layer("olr", "Cloud tops (satellite-like)", "W/m²", ["ttr"],
+          [(100, "#f2f7ffff"), (140, "#ffffffee"), (180, "#ffffffbb"), (220, "#ffffff77"), (250, "#ffffff33"), (275, "#ffffff00")],
+          needs_interval=True, accumulated=True, app_ready=False,
+          description="Outgoing longwave radiation: low values (white) are cold, high cloud tops, like an infrared satellite image."),
+    Layer("ptype", "Precipitation type", "", ["ptype", "tprate"],
+          [(0, T)] + [(v, c) for v, _, c in PTYPE],
+          categories=PTYPE, app_ready=False,
+          description="Rain, snow, freezing rain, ice pellets and mixes, shaded light, moderate or heavy by rate."),
 ] + [
     Layer(f"ens_{k}", title, "%", [p], PROB, source="ens",
           description=f"IFS ENS probability of {what} in a 24 h window (windows every 12 h). High values mean the ensemble agrees on an unusual event.")
@@ -99,6 +136,9 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
                               ("gust15", "Chance of gusts >15 m/s", "10fgg15", "gusts above 15 m/s (54 km/h)"),
                               ("gust25", "Chance of gusts >25 m/s", "10fgg25", "gusts above 25 m/s (90 km/h)")]
 ]}
+
+
+APP_READY = {l.id for l in LAYERS.values() if l.app_ready}
 
 
 def layer_catalogue() -> list[dict]:
@@ -402,6 +442,16 @@ def resample(vals: np.ndarray, grid: Grid, lons: np.ndarray, lats: np.ndarray) -
     return (v00 * (1 - wx) * (1 - wy) + v01 * wx * (1 - wy) + v10 * (1 - wx) * wy + v11 * wx * wy).astype(np.float32)
 
 
+def resample_nearest(vals: np.ndarray, grid: Grid, lons: np.ndarray, lats: np.ndarray) -> np.ndarray:
+    """Nearest grid point, for categorical fields (averaging category codes would be meaningless)."""
+    ny, nx = vals.shape
+    lon0, dlon = grid.lons[0], grid.lons[1] - grid.lons[0]
+    lat0, dlat = grid.lats[0], grid.lats[1] - grid.lats[0]
+    ix = np.rint(((lons - lon0) % 360) / dlon).astype(int) % nx
+    iy = np.clip(np.rint((lats - lat0) / dlat).astype(int), 0, ny - 1)
+    return vals[np.ix_(iy, ix)].astype(np.float32)
+
+
 def encode(arr: np.ndarray, lo: float, hi: float) -> str:
     scale = (hi - lo) / 65534 if hi > lo else 1.0
     q = np.where(np.isfinite(arr), np.clip(np.round((arr - lo) / scale), 0, 65534), 65535).astype("<u2")
@@ -418,13 +468,23 @@ _pool = ThreadPoolExecutor(max_workers=8)
 def _convert(layer: Layer, a: dict[str, np.ndarray], dt_hours: float) -> np.ndarray:
     if layer.id == "mslp":
         return a["msl"] / 100.0
-    if layer.id in ("wind10", "jet250"):
+    if layer.id in ("wind10", "jet250", "wind850"):
         u, v = layer.vectors
         return np.hypot(a[u], a[v])
     if layer.id == "t2m":
         return a["2t"] - 273.15
+    if layer.id == "t850":
+        return a["t"] - 273.15
     if layer.id == "precip":
         return np.maximum(a["tp"] - a["tp_prev"], 0) * 1000.0 / dt_hours
+    if layer.id == "olr":
+        # ttr is accumulated (J/m2, negative = outgoing): mean outgoing flux over the interval.
+        return np.maximum(-(a["ttr"] - a["ttr_prev"]) / (dt_hours * 3600.0), 0)
+    if layer.id == "ptype":
+        rate = a["tprate"] * 3600.0                      # kg m-2 s-1 = mm/s -> mm/h
+        level = np.where(rate >= 4, 3, np.where(rate >= 1, 2, np.where(rate >= 0.1, 1, 0)))
+        code = np.rint(a["ptype"]).astype(int)
+        return np.where((level > 0) & (code > 0), code * 10 + level, 0).astype(np.float32)
     if layer.id == "z500":
         return a["gh"] / 10.0
     return a[layer.params[0]]
@@ -452,7 +512,7 @@ def get_frames(layer_id: str, bbox: str, start: str | None, end: str | None, max
         if not src:
             continue
         run, step = src
-        prev = previous_step(run, step) if layer.id == "precip" else None
+        prev = previous_step(run, step) if layer.accumulated else None
         plan.append((t, run, step, prev))
     futures = {}
     for i, (t, run, step, prev) in enumerate(plan):
@@ -474,10 +534,11 @@ def get_frames(layer_id: str, bbox: str, start: str | None, end: str | None, max
             arrays[key], grid = read_one(path)
         if not ok:
             continue
-        if layer.id == "precip" and "tp_prev" not in arrays:
-            arrays["tp_prev"] = np.zeros_like(arrays["tp"])
+        if layer.accumulated:                       # step 0 has nothing accumulated yet
+            for p in layer.params:
+                arrays.setdefault(p + "_prev", np.zeros_like(arrays[p]))
         dt = (step - prev) if prev is not None else 1
-        vals = resample(_convert(layer, arrays, dt), grid, lons, lats)
+        vals = (resample_nearest if layer.categories else resample)(_convert(layer, arrays, dt), grid, lons, lats)
         frame = {"valid_time": iso(t), "run": iso(run), "step": step, "_vals": vals}
         if layer.vectors:
             u, v = layer.vectors
@@ -564,6 +625,8 @@ def _package(layer, box, lons, lats, frames, all_vals, run, vlons, vlats, model=
         "nx": len(lons), "ny": len(lats), "projection": "mercator",
         "lo": lo, "hi": hi, "stops": layer.stops, "contour_interval": layer.contour_interval,
         "vectors": vec, "frames": out_frames,
+        **({"categories": [{"value": v, "label": lbl, "color": c} for v, lbl, c in layer.categories]}
+           if layer.categories else {}),
         "attribution": ATTRIBUTION.format(year=datetime.now(timezone.utc).year),
     }
 

@@ -39,6 +39,8 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
 }
 ```
 
+- `kind` (optional): `"explainer"` for an educational item about a textbook phenomenon (see the
+  skill's explainer section); omit it for a normal highlight. At most 3 explainers per feed.
 - `hazards`: any of wind, rain, flood, snow, ice, heat, cold, tropical-cyclone, convection, drought,
   fire-weather, fog, dust, coastal, other.
 - `status`: `observed` (already happened), `ongoing`, or `forecast`.
@@ -104,6 +106,9 @@ setting → hazard → why the forecast system flags it.
 | Atmospheric river / heavy rain | `tcwv` fill + `mslp` contours, long thin plume in a wide box | `precip` fill, regional box | `ens_rain50` |
 | Heatwave / cold spell | `z500` fill + contours (ridge/trough), continental box | `t2m` fill, 5-7 days so the diurnal cycle pulses | — |
 | Jet-stream story | `jet250` fill + `jet250` vectors, hemispheric box | `mslp` fill + contours under the jet exit | — |
+| Tip jet, fall or gap wind (explainer) | `mslp` fill + contours, synoptic box showing the pressure pattern that drives it | `wind10` fill + `wind10` vectors + `mslp` contours on the scan's `scene_bbox`, 1-3 days, 3-hourly | `gust` fill, same box |
+| Organised tropical or summer convection | `tcwv` fill + `mslp` contours, wide box (the moist air mass, monsoon or ITCZ) | `precip` fill on the storm cluster, 1-2 days, 3-hourly so the cells pulse | — |
+| Freezing rain / ice | `t2m` fill + `mslp` contours (warm air over cold: the setting) | `precip` fill on the area, captions saying where it falls as freezing rain | — |
 
 Rules of thumb:
 - Boxes narrower than ~50° are drawn from the 0.1° data (~10 km), wider ones from 0.25°: zoom

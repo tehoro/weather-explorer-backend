@@ -26,7 +26,10 @@ uv run --frozen python $S/scripts/scan_fields.py --out data/highlights/scan.json
 python3 $S/scripts/fetch_warnings.py --worldwide --hours-ahead 48 --out data/highlights/warnings.json
 ```
 
-- `scan.json` (≈10 s, cached downloads):
+The scan downloads a few hundred global fields and can take several minutes: run it with a
+10-minute timeout (600000 ms), or in the background, and start the news searches meanwhile.
+
+- `scan.json` (a few minutes; downloads are cached for the scene data):
   - `ensemble`: IFS ENS probability regions over land and coasts: chance of more than 50 mm
     precipitation, or of gusts above 25 m/s, in daily 24 h windows (≥ 50 %), chained over days
     1-10, each with its peak probability, location, box and days.
@@ -34,6 +37,12 @@ python3 $S/scripts/fetch_warnings.py --worldwide --hours-ahead 48 --out data/hig
     tropical cyclone (model only)" — never call one an active storm or give it a name from this
     alone. `bergeron` ≥ 1 means explosive deepening.
   - `rain24`: 24 h totals ≥ 100 mm. `gusts`: gusts ≥ 35 m/s.
+  - `explainers`: textbook local winds at known places when strong enough (Greenland tip jets,
+    bora, mistral, piteraq, Tehuantepecer, Papagayo, Santa Ana, Antarctic katabatics, and
+    low-level jets), each with a `note` on what drives it, its peak, timing and a `scene_bbox`.
+  - `convection`: organised deep convection anywhere (tropics and both hemispheres): heavy-rain
+    clusters with high CAPE beside them.
+  - `freezing`: freezing rain or drizzle falling over land (it can be ice-storm material).
   - `errors`: any signal that failed. Report failures in the feed's `gaps`.
 - `warnings.json`: MeteoAlarm orange/red warnings for ECMWF Member and Co-operating States (now to
   +48 h) and GDACS orange/red alerts worldwide (tropical cyclones, floods, wildfires, droughts).
@@ -68,7 +77,26 @@ Aim for fifteen (minimum five, maximum eighteen). Prefer:
 
 Collapse duplicates (a typhoon's rain, wind and low signals are one highlight). Leave out signals
 that are large but uninteresting (persistent tropical warmth with no impacts, routine Southern
-Ocean lows) unless there is a story to tell.
+Ocean lows) unless there is a story to tell. Look across both hemispheres and the tropics: a
+southern-hemisphere storm or a burst of monsoon or ITCZ convection is as worth showing as a
+northern one. Freezing rain over populated land is a hazard in its own right.
+
+### Explainers (optional, 0-3)
+
+Besides the newsworthy items, add up to three **explainers** (`"kind": "explainer"`): lesser-known
+phenomena that are textbook examples of how the atmosphere works and show up clearly in the data
+right now, from the scan's `explainers` list (or a clear `convection` example worth explaining). They
+need no news coverage: the evidence is the field itself (`field` evidence items quoting the scan).
+
+- Only when the scan finds a strong, clear case; none is fine. Prefer variety and places not
+  already in the feed.
+- Status `forecast` (or `ongoing`), hazards usually `wind` or `other`, and the summary says plainly
+  that this is model output with no impacts claimed (unless news or warnings show otherwise).
+- `why_interesting` explains the mechanism in plain words (the scan's `note` is a starting
+  point): what forces the wind, why it is so strong or so local, where else it happens.
+- Rank explainers after the main highlights.
+- Low-level jets are found but can't be shown yet (the 850 hPa wind layer isn't available in
+  highlights): leave them out for now.
 
 ## 4. Write the scenes
 
