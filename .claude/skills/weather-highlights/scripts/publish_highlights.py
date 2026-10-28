@@ -23,6 +23,7 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(BACKEND))
 import fields  # noqa: E402
+import explainers  # noqa: E402
 
 OUT = BACKEND / "data" / "highlights"
 SCHEMA_VERSION = 1
@@ -54,7 +55,34 @@ def check_bbox(b, where, errors):
         errors.append(f"{where}: bbox smaller than 2 degrees")
 
 
-def validate(feed: dict) -> tuple[list[str], list[str]]:
+def check_explainers(items: list, errors: list) -> None:
+    """Each explainer shows something new: not a topic from the last sweeps, not a place a highlight covers."""
+    shown = explainers.recent()
+    for i, it in enumerate(items):
+        if it.get("kind") != "explainer":
+            continue
+        w = f"items[{i}] ({it.get('id', '?')})"
+        topic = it.get("topic")
+        if not isinstance(topic, str) or not topic.strip():
+            errors.append(f"{w}: explainers need a topic: the scan's phenomenon name (e.g. 'Bora (Adriatic)'), "
+                          "or a short name for anything else (e.g. 'Convection: Madagascar')")
+            continue
+        area = explainers.area_of(it)
+        r = explainers.shown_recently(topic, area, shown)
+        if r:
+            errors.append(f"{w}: '{topic}' repeats the explainer in the {r['sweep']} sweep ({r['title']}); "
+                          f"an explainer rests for {explainers.REPEAT_SWEEPS} sweeps: choose another or leave it out")
+        for j, other in enumerate(items):
+            box = other.get("where", {}).get("bbox")
+            if other.get("kind") == "explainer" or not area or not box:
+                continue
+            if explainers.overlap(area, box) >= 0.5:
+                errors.append(f"{w}: '{topic}' is where highlight items[{j}] ({other.get('id', '?')}) already is; "
+                              "explain the mechanism in that highlight's why_interesting instead, or choose another explainer")
+
+
+def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
+    """sweep: a full feed, whose explainers are also checked against recent sweeps and its own highlights."""
     errors, warnings = [], []
     for k in ("generated_utc", "items"):
         if k not in feed:
@@ -117,6 +145,8 @@ def validate(feed: dict) -> tuple[list[str], list[str]]:
                     warnings.append(f"{sw}: window partly outside Open Data range {fields.iso(lo)}..{fields.iso(hi)}; frames will be clipped")
             for c in sc.get("captions", []):
                 t(c.get("at", ""), f"{sw}.captions", errors)
+    if sweep:
+        check_explainers(items, errors)
     return errors, warnings
 
 
@@ -130,7 +160,7 @@ def main():
     feed = json.loads(Path(args[0]).read_text())
     feed.setdefault("schema_version", SCHEMA_VERSION)
     feed.setdefault("attribution", fields.ATTRIBUTION.format(year=datetime.now(timezone.utc).year))
-    errors, warnings = validate(feed)
+    errors, warnings = validate(feed, sweep=not request_out)
     if request_out and len(feed.get("items", [])) != 1:
         errors.append("a requested highlight must have exactly one item")
     for w in warnings:
@@ -149,6 +179,7 @@ def main():
         print(f"published the requested highlight -> {request_out}")
         return
     OUT.mkdir(parents=True, exist_ok=True)
+    explainers.record(feed)                     # before latest.json, so the outgoing feed is kept too
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%MZ")
     (OUT / f"highlights-{stamp}.json").write_text(text)
     tmp = OUT / ".latest.json.tmp"

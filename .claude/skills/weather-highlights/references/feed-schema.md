@@ -41,6 +41,9 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
 
 - `kind` (optional): `"explainer"` for an educational item about a textbook phenomenon (see the
   skill's explainer section); omit it for a normal highlight. At most 3 explainers per feed.
+- `topic` (explainers only, required): the scan's `phenomenon` name, or a short name such as
+  "Convection: Congo Basin". The publish script refuses an explainer whose topic or place was an
+  explainer in either of the last two sweeps, or whose place lies inside a main highlight's `where.bbox`.
 - `hazards`: any of wind, rain, flood, snow, ice, heat, cold, tropical-cyclone, convection, drought,
   fire-weather, fog, dust, coastal, other.
 - `status`: `observed` (already happened), `ongoing`, or `forecast`.

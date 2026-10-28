@@ -1,4 +1,5 @@
-"""Keeps the few files that must survive a restart: the highlights feed and the time of the last sweep.
+"""Keeps the few files that must survive a restart: the highlights feed, the time of the last sweep
+and which explainers recent sweeps showed.
 
 On Replit (where REPL_ID is set) a deployment's disk is reset on every restart, so these files are
 mirrored to Replit Object Storage: restored at start-up, saved after each sweep. Elsewhere the
@@ -16,7 +17,8 @@ BACKEND = Path(__file__).parent
 FEED = BACKEND / "data" / "highlights" / "latest.json"
 LAST_SWEEP = FEED.parent / ".last_sweep"
 SEED = BACKEND / "seed" / "latest.json"
-KEYS = {"highlights/latest.json": FEED, "highlights/last_sweep": LAST_SWEEP}
+KEYS = {"highlights/latest.json": FEED, "highlights/last_sweep": LAST_SWEEP,
+        "highlights/explainer_history.json": FEED.parent / "explainer_history.json"}
 
 ON_REPLIT = bool(os.environ.get("REPL_ID"))
 

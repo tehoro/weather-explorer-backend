@@ -40,6 +40,8 @@ The scan downloads a few hundred global fields and can take several minutes: run
   - `explainers`: textbook local winds at known places when strong enough (Greenland tip jets,
     bora, mistral, piteraq, Tehuantepecer, Papagayo, Santa Ana, Antarctic katabatics, and
     low-level jets), each with a `note` on what drives it, its peak, timing and a `scene_bbox`.
+    Ones already explained in the last two sweeps are marked `recently_shown`; `recent_explainers`
+    lists every explainer of those sweeps (topic, title, area).
   - `convection`: organised deep convection anywhere (tropics and both hemispheres): heavy-rain
     clusters with high CAPE beside them.
   - `freezing`: freezing rain or drizzle falling over land (it can be ice-storm material).
@@ -88,8 +90,13 @@ phenomena that are textbook examples of how the atmosphere works and show up cle
 right now, from the scan's `explainers` list (or a clear `convection` example worth explaining). They
 need no news coverage: the evidence is the field itself (`field` evidence items quoting the scan).
 
-- Only when the scan finds a strong, clear case; none is fine. Prefer variety and places not
-  already in the feed.
+- Only when the scan finds a strong, clear case; none is fine.
+- Something new each time: skip anything marked `recently_shown` or in `recent_explainers` (same
+  phenomenon or same place) — explainers rest for two sweeps. A strong case can return after that.
+- Never explain what a main highlight already shows: if the tip jet is part of a Greenland storm
+  highlight, put the explanation in that highlight's `why_interesting` instead of a separate item.
+- Give each explainer a `topic`: the scan's `phenomenon` name exactly (e.g. "Great Plains low-level
+  jet"), or a short name for anything else (e.g. "Convection: Congo Basin").
 - Status `forecast` (or `ongoing`), hazards usually `wind` or `other`, and the summary says plainly
   that this is model output with no impacts claimed (unless news or warnings show otherwise).
 - `why_interesting` explains the mechanism in plain words (the scan's `note` is a starting

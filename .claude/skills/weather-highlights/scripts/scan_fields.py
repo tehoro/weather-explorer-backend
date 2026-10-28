@@ -14,6 +14,8 @@ Signals (each is evidence for Claude to weigh, not a verdict):
                jets, fall and gap winds (bora, mistral, piteraq, Tehuantepecer, Papagayo, Santa
                Ana, Antarctic katabatics) and low-level jets (Great Plains, Somali, South American,
                Caribbean), each when strong enough in IFS HRES, days 0-5.
+               Those shown as explainers in the last two sweeps are marked `recently_shown`,
+               and `recent_explainers` lists them.
   * convection - organised deep convection anywhere: CAPE >= 2500 J/kg with heavy rain falling.
   * freezing - freezing rain or freezing drizzle falling over a sizeable area.
 
@@ -36,6 +38,8 @@ import numpy as np
 BACKEND = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(BACKEND))
 import fields  # noqa: E402  (the backend's data service: downloads, caching, decoding)
+import explainers  # noqa: E402  (local winds, and which explainers recent sweeps showed)
+from explainers import LOCAL_WINDS  # noqa: E402
 
 H = timedelta(hours=1)
 ENS_PARAMS = {"tpg50": "chance of >50 mm precipitation in 24 h", "10fgg25": "chance of gusts >25 m/s in 24 h"}
@@ -269,40 +273,6 @@ def scan_gusts(run: datetime, threshold: float) -> list[dict]:
 # ---- Explainers: local winds at known places -------------------------------------------------
 # (name, kind, box [w, s, e, n], wind-from sector [deg from, deg to], threshold m/s, level, note)
 # level "10m" uses 10 m wind; "850" uses 850 hPa wind with the 10 m wind much weaker (a jet aloft).
-LOCAL_WINDS = [
-    ("Greenland tip jet", "tip jet", [-46, 57.5, -38, 61.5], (240, 320), 25, "10m",
-     "Westerly flow forced round Cape Farewell accelerates into a narrow jet off Greenland's southern tip."),
-    ("Greenland reverse tip jet", "tip jet", [-50, 57, -42, 61], (30, 120), 25, "10m",
-     "Easterly flow round Cape Farewell: the 'reverse' (easterly) tip jet."),
-    ("Piteraq (East Greenland)", "katabatic", [-38.5, 64.5, -35.5, 66.5], (270, 30), 20, "10m",
-     "Cold air draining off the Greenland ice sheet into Ammassalik fjord: a violent katabatic wind."),
-    ("Bora (Adriatic)", "fall wind", [13.5, 43.0, 16.5, 45.6], (0, 90), 15, "10m",
-     "Cold north-easterly air spilling over the Dinaric Alps onto the Adriatic coast in strong gusts."),
-    ("Mistral (Gulf of Lion)", "gap wind", [3.5, 41.5, 6.5, 43.3], (300, 30), 15, "10m",
-     "Northerly air funnelled down the Rhône valley between the Alps and the Massif Central."),
-    ("Novaya Zemlya bora", "fall wind", [52, 69.5, 58, 72.5], (45, 135), 20, "10m",
-     "Cold air from the Kara Sea plunging over Novaya Zemlya's mountains onto the Barents Sea."),
-    ("Tehuantepecer", "gap wind", [-96, 13.5, -94, 16], (315, 45), 15, "10m",
-     "A cold surge from North America squeezed through the Chivela Pass onto the Gulf of Tehuantepec."),
-    ("Papagayo jet", "gap wind", [-88.5, 10, -86, 12], (30, 120), 12, "10m",
-     "Trade winds accelerated through the gap in Central America's mountains at Lake Nicaragua."),
-    ("Santa Ana winds", "fall wind", [-119.5, 33.2, -117, 34.5], (0, 110), 12, "10m",
-     "Dry offshore winds descending from the Great Basin through southern California's passes."),
-    ("Adélie Land katabatic", "katabatic", [138, -68, 148, -65.5], (120, 210), 22, "10m",
-     "Cold, dense air draining off the Antarctic plateau: some of the windiest coasts on Earth."),
-    ("Terra Nova Bay katabatic", "katabatic", [162, -75.5, 166.5, -74], (230, 320), 22, "10m",
-     "Katabatic outflow from the Antarctic plateau funnelled down Reeves Glacier."),
-    ("Great Plains low-level jet", "low-level jet", [-102, 27, -94, 40], (135, 225), 18, "850",
-     "A southerly jet a kilometre up at night, feeding Gulf moisture into Plains thunderstorms."),
-    ("Somali (Findlater) jet", "low-level jet", [45, 0, 60, 15], (180, 270), 18, "850",
-     "The cross-equatorial jet off East Africa that carries moisture into the Indian monsoon."),
-    ("South American low-level jet", "low-level jet", [-66, -26, -58, -14], (315, 45), 18, "850",
-     "A northerly jet east of the Andes carrying Amazon moisture towards the storms of the La Plata basin."),
-    ("Caribbean low-level jet", "low-level jet", [-80, 11, -70, 16], (45, 135), 18, "850",
-     "An easterly jet over the Caribbean Sea, strongest in July and February."),
-]
-
-
 def _from_dir(u: np.ndarray, v: np.ndarray) -> np.ndarray:
     return (np.degrees(np.arctan2(-u, -v)) + 360) % 360       # meteorological: where it blows from
 
@@ -479,6 +449,12 @@ def main():
             errors[name] = f"{type(e).__name__}: {e}"
             result[name] = []
     result["ensemble"] = sorted(result["ensemble"], key=lambda d: -d["extreme"] * d["area_km2"] ** 0.5)[:40]
+    shown = explainers.recent()
+    for x in result["explainers"]:
+        r = explainers.shown_recently(x["phenomenon"], explainers.CORE.get(x["phenomenon"]), shown)
+        if r:
+            x["recently_shown"] = f"explainer in the {r['sweep']} sweep: {r['title']}"
+    result["recent_explainers"] = shown
     result["sources"] = {**sources, "hres": f"IFS HRES {fields.iso(run)} from ECMWF Open Data (CC BY 4.0)"}
     result["errors"] = errors
     text = json.dumps(result, indent=1)
