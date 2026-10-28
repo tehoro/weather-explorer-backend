@@ -72,13 +72,14 @@ T = "#00000000"  # transparent
 
 # Precipitation type: ECMWF code (table 4.201) x 10 + intensity (1 light < 1 mm/h <= 2 moderate
 # < 4 mm/h <= 3 heavy); 0 = nothing falling (rate below 0.1 mm/h).
-PTYPE_KINDS = [(1, "Rain", ("#a1d99bcc", "#41ab5ddd", "#006d2cee")),
-               (3, "Freezing rain", ("#fcbba1dd", "#ef3b2cee", "#a50f15ff")),
-               (5, "Snow", ("#c6dbefcc", "#6baed6dd", "#2171b5ee")),
-               (6, "Wet snow", ("#c7e9e9cc", "#66c2a4dd", "#238b8aee")),
-               (7, "Rain and snow", ("#dadaebcc", "#9e9ac8dd", "#6a51a3ee")),
-               (8, "Ice pellets", ("#fee6cecc", "#fd8d3cdd", "#d94801ee")),
-               (12, "Freezing drizzle", ("#fde0ddcc", "#f768a1dd", "#ae017eee"))]
+# Colours as in ECMWF's OpenCharts precipitation-type chart: lighter when light, darker when heavy.
+PTYPE_KINDS = [(1, "Rain", ("#63e842d0", "#3ce213f0", "#2a9e0dff")),
+               (3, "Freezing rain", ("#ff366fd0", "#ff044bf0", "#b20334ff")),
+               (5, "Snow", ("#b186f1d0", "#9d68eef0", "#6e49a7ff")),
+               (6, "Wet snow", ("#6a69fbd0", "#4543faf0", "#302fafff")),
+               (7, "Sleet (rain and snow)", ("#4cc6b8d0", "#1fb8a6f0", "#168174ff")),
+               (8, "Ice pellets", ("#ff9933d0", "#ff8000f0", "#b25a00ff")),
+               (12, "Freezing drizzle", ("#fc8bcdd0", "#fb6ec0f0", "#b04d86ff"))]
 PTYPE = [(code * 10 + i, f"{name}, {level}", colours[i - 1])
          for code, name, colours in PTYPE_KINDS for i, level in ((1, "light"), (2, "moderate"), (3, "heavy"))]
 PROB = [(5, T), (10, "#c6dbef66"), (25, "#fed976bb"), (50, "#fd8d3cdd"), (75, "#e31a1cee"), (95, "#ae017eff"), (100, "#49006aff")]
