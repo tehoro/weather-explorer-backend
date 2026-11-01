@@ -61,6 +61,15 @@ GIST_ID = os.environ.get("DISCOVERY_GIST_ID", "112fb3a1ba5a2bb8e842f5ea99244b5f"
 LAST_SWEEP = store.LAST_SWEEP
 
 
+def feed_stamp() -> tuple[str | None, int]:
+    """Identifies the published feed: its generated time and file modification time."""
+    try:
+        generated = json.loads(agent.FEED.read_text()).get("generated_utc")
+        return generated, agent.FEED.stat().st_mtime_ns
+    except (OSError, ValueError):
+        return None, 0
+
+
 class Refresh:
     """At most one background sweep at a time."""
 
@@ -106,10 +115,16 @@ class Refresh:
         async with BUSY:
             await asyncio.to_thread(store.save)
             self.note("sweep started")
+            before = feed_stamp()
             try:
                 self.last_report = await agent.run_refresh(self.note)
             except Exception as e:
                 self.note(f"sweep failed: {e}")
+            if feed_stamp() == before:
+                # Nothing was published (the agent failed, or the validator never passed): keep the
+                # last good feed and its scenes, and don't tell the web viewer there is a new sweep.
+                self.note("no new feed was published; the previous highlights stay up")
+                return
             try:
                 await scene_job.build(store.FEED)
                 self.note("scene data prepared")

@@ -92,6 +92,46 @@ class StabilityTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(json.loads((root/'active.json').read_text())[0]['status'], 'ready')
                 save.assert_called_once()
 
+    async def _sweep(self, research):
+        """Run one sweep with the given fake agent; returns (scene build mock, notify mock, feed path)."""
+        import server
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        feed = Path(tmp.name) / 'latest.json'
+        feed.write_text(json.dumps({'generated_utc': '2026-11-01T03:00Z', 'items': []}))
+        async def run_refresh(log):
+            return await research(feed)
+        with patch.object(server.agent, 'FEED', feed), \
+             patch.object(server.agent, 'run_refresh', side_effect=run_refresh), \
+             patch.object(server.scene_job, 'build', new_callable=AsyncMock) as build, \
+             patch.object(server.web_notify, 'notify', new_callable=AsyncMock) as notify, \
+             patch.object(server.store, 'save'):
+            await server.Refresh()._run()
+        return build, notify, feed
+
+    async def test_failed_sweep_keeps_feed_and_does_not_notify(self):
+        async def fails(feed):
+            raise RuntimeError('API error')
+        build, notify, feed = await self._sweep(fails)
+        build.assert_not_called()
+        notify.assert_not_called()
+        self.assertEqual(json.loads(feed.read_text())['generated_utc'], '2026-11-01T03:00Z')
+
+    async def test_sweep_without_new_feed_does_not_notify(self):
+        async def gives_up(feed):
+            return 'The validator never passed.'
+        build, notify, _ = await self._sweep(gives_up)
+        build.assert_not_called()
+        notify.assert_not_called()
+
+    async def test_published_sweep_builds_scenes_and_notifies(self):
+        async def publishes(feed):
+            feed.write_text(json.dumps({'generated_utc': '2026-11-01T15:00Z', 'items': []}))
+            return 'Published 15 highlights.'
+        build, notify, _ = await self._sweep(publishes)
+        build.assert_awaited_once()
+        notify.assert_awaited_once_with('sweep')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,9 @@
+[project]
+name = "weather-highlights-shadow"
+version = "0.1.0"
+description = "Shadow sweeps of the weather-highlights skill on another model, for comparison only (never published)"
+requires-python = ">=3.12"
+dependencies = [
+    "openai==3.42.0",
+    "truststore>=0.10",
+]

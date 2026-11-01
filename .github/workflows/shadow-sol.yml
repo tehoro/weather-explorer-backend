@@ -1,0 +1,95 @@
+# Shadow sweeps: the weather-highlights skill on GPT-6.1 Sol (OpenAI Agents API), at the same slots as
+# production's Claude sweeps (03 and 15 UTC), for comparison only. Nothing is published, and the
+# production server on Replit is not involved: see shadow/sol_runner.py and shadow/compare.py.
+#
+# Each job runs one shadow sweep, then compares earlier runs with production's sweep for their slot
+# (production's feed appears 30-40 minutes after the slot, so a run is compared by the next job).
+# Runs are kept for 14 days in the Actions cache, and each job uploads them as an artifact.
+#
+# Needs the repository secret OPENAI_API_KEY. Delete or disable this workflow to stop the trial.
+name: Shadow sweep (Sol)
+
+on:
+  schedule:
+    - cron: "5 3,15 * * *"
+  workflow_dispatch:
+    inputs:
+      sweep:
+        description: "Run a shadow sweep (off = only compare earlier runs)"
+        type: boolean
+        default: true
+      minutes:
+        description: "Time limit for the shadow run, in minutes"
+        default: "45"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shadow-sol
+  cancel-in-progress: false
+
+jobs:
+  shadow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      SWEEP: ${{ github.event_name == 'schedule' || inputs.sweep }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Restore earlier runs
+        uses: actions/cache/restore@v4
+        with:
+          path: shadow/runs
+          key: shadow-runs-${{ github.run_id }}
+          restore-keys: shadow-runs-
+
+      - name: Install
+        run: |
+          uv sync --frozen               # the backend itself, for re-validating drafts in staging
+          cd shadow && uv sync --frozen
+          mkdir -p runs
+
+      - name: Check the key and model
+        if: env.SWEEP == 'true'
+        working-directory: shadow
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: uv run --frozen sol_runner.py probe
+
+      - name: Shadow sweep
+        if: env.SWEEP == 'true'
+        working-directory: shadow
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: uv run --frozen sol_runner.py sweep --minutes "${{ inputs.minutes || '45' }}"
+
+      - name: Compare earlier runs with production
+        if: always()
+        working-directory: shadow
+        run: uv run --frozen compare.py --pending
+
+      - name: Keep 14 days of runs
+        if: always()
+        working-directory: shadow
+        run: |
+          cutoff=$(date -u -d '14 days ago' +%Y%m%dT%H%MZ)
+          for d in runs/*/; do [ -d "$d" ] && [ "$(basename "$d")" \< "$cutoff" ] && rm -rf "$d"; done; true
+
+      - name: Save runs
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: shadow/runs
+          key: shadow-runs-${{ github.run_id }}
+
+      - name: Upload runs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-runs
+          path: shadow/runs
+          retention-days: 30
