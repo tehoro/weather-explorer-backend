@@ -5,6 +5,7 @@ re-validates it in a throwaway copy of the backend.
 
   uv run sol_runner.py probe      check the key and the model (no session is created, no cost)
   uv run sol_runner.py sweep      start a shadow sweep, or resume the unfinished one
+                                  (--once-within 3: not if this slot already has a run)
   uv run sol_runner.py cleanup    delete hosted sessions that earlier runs left behind
 
 Each run keeps everything in runs/<UTC stamp>/ (not in Git):
@@ -327,10 +328,26 @@ def unfinished() -> Path | None:
     return None
 
 
+def recent_run(hours: float) -> Path | None:
+    """A run started within the last `hours` (run folders are named by their UTC start)."""
+    cutoff = datetime.now(timezone.utc).timestamp() - hours * 3600
+    for run in sorted(RUNS.glob("*"), reverse=True):
+        try:
+            started = datetime.strptime(run.name, "%Y%m%dT%H%MZ").replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            continue
+        if started >= cutoff and (run / "session.json").exists():
+            return run
+    return None
+
+
 def sweep(a) -> int:
     c = client(a.key_file)
     RUNS.mkdir(exist_ok=True)
     run = unfinished()
+    if not run and a.once_within and recent_run(a.once_within):
+        log(f"this slot already has a run ({recent_run(a.once_within).name}); nothing to do")
+        return 0
     if run:
         sid = json.loads((run / "session.json").read_text())["id"]
         started = json.loads((run / "session.json").read_text()).get("started_unix", time.time())
@@ -416,6 +433,8 @@ def main() -> int:
     ap.add_argument("--minutes", type=float, default=45, help="wall-clock limit before the run is cancelled")
     ap.add_argument("--key-file", type=Path, default=KEY_FILE)
     ap.add_argument("--keep-session", action="store_true", help="don't delete the hosted session afterwards")
+    ap.add_argument("--once-within", type=float, default=0, metavar="HOURS",
+                    help="skip if a run already started within this many hours (scheduled backups)")
     a = ap.parse_args()
     if a.command == "probe":
         probe(a)

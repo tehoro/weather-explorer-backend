@@ -2,9 +2,12 @@
 # production's Claude sweeps (03 and 15 UTC), for comparison only. Nothing is published, and the
 # production server on Replit is not involved: see shadow/sol_runner.py and shadow/compare.py.
 #
-# The 03:05 and 15:05 jobs run one shadow sweep each. Production's feed appears 30-40 minutes after
-# the slot, so the 05:00 and 17:00 jobs only compare runs with production's sweep for their slot
-# (every job also compares anything left over).
+# GitHub can delay or drop scheduled jobs (none fired on 1 Nov 2026 between 00 and 06 UTC), so each
+# slot has two times off the hour, and the second does nothing if the slot already has a run:
+#   03:17 / 03:47 and 15:17 / 15:47 UTC   shadow sweep (once per slot)
+#   05:13 / 06:43 and 17:13 / 18:43 UTC   compare runs with production's sweep, which appears
+#                                          30-40 minutes after the slot (every job also compares
+#                                          anything left over)
 # Runs are kept for 14 days in the Actions cache, and each job uploads them as an artifact.
 #
 # Needs the repository secret OPENAI_API_KEY. Delete or disable this workflow to stop the trial.
@@ -12,8 +15,10 @@ name: Shadow sweep (Sol)
 
 on:
   schedule:
-    - cron: "5 3,15 * * *"     # shadow sweep
-    - cron: "0 5,17 * * *"     # compare only
+    - cron: "17 3,15 * * *"    # shadow sweep
+    - cron: "47 3,15 * * *"    # shadow sweep, if the first time was dropped
+    - cron: "13 5,17 * * *"    # compare only
+    - cron: "43 6,18 * * *"    # compare only, backup
   workflow_dispatch:
     inputs:
       sweep:
@@ -36,7 +41,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     env:
-      SWEEP: ${{ (github.event_name == 'schedule' && github.event.schedule == '5 3,15 * * *') || inputs.sweep == true }}
+      SWEEP: ${{ (github.event_name == 'schedule' && contains(github.event.schedule, ' 3,15 ')) || inputs.sweep == true }}
+      # a scheduled sweep runs once per slot; one started by hand always runs
+      ONCE: ${{ github.event_name == 'schedule' && '3' || '0' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,7 +74,7 @@ jobs:
         working-directory: shadow
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: uv run --frozen sol_runner.py sweep --minutes "${{ inputs.minutes || '45' }}"
+        run: uv run --frozen sol_runner.py sweep --minutes "${{ inputs.minutes || '45' }}" --once-within "$ONCE"
 
       - name: Compare earlier runs with production
         if: always()

@@ -4,7 +4,7 @@
   uv run compare.py runs/<stamp> --production FEED.json    use a given production feed
   uv run compare.py --pending               every run not yet compared whose production sweep is out
 
-Production's feed is the first sweep published within 5 hours after the shadow run started, read from
+Production's feed is its sweep nearest the shadow run's start (3 h before to 5 h after), read from
 the public web archive (data/archive.json and data/items/). The same automatic checks run on both:
 
   caption_window   caption time outside its scene's start..end
@@ -145,18 +145,22 @@ def pair(prod: dict, cand: dict) -> list[dict]:
 
 
 def production_for(started: datetime) -> dict | None:
-    """Production's sweep published within 5 h after the shadow run started, from the public archive,
-    or None if it isn't out yet."""
+    """Production's sweep for the shadow run's slot: the one published nearest the run's start, from
+    3 h before (a run that started late) to 5 h after. None if it isn't out yet."""
     archive = get_json(f"{WEB}/archive.json")
-    for tag in sorted({r.split("/")[0] for r in archive if not r.startswith("req")}):
+    near = []
+    for tag in {r.split("/")[0] for r in archive if not r.startswith("req")}:
         when = datetime.strptime(tag, "%Y%m%dT%H%MZ").replace(tzinfo=timezone.utc)
-        if started - timedelta(minutes=30) <= when <= started + timedelta(hours=5):
-            refs = [r for r in archive if r.startswith(tag + "/")]
-            items = sorted((get_json(f"{WEB}/items/{r}.json") for r in refs), key=lambda i: i.get("rank", 99))
-            feed = get_json(f"{WEB}/feed.json")
-            runs = feed.get("runs") if feed.get("generated_utc") == f"{when:%Y-%m-%dT%H:%MZ}" else None
-            return {"generated_utc": f"{when:%Y-%m-%dT%H:%MZ}", "runs": runs, "items": items}
-    return None
+        if started - timedelta(hours=3) <= when <= started + timedelta(hours=5):
+            near.append((abs(when - started), tag, when))
+    if not near:
+        return None
+    _, tag, when = min(near)
+    refs = [r for r in archive if r.startswith(tag + "/")]
+    items = sorted((get_json(f"{WEB}/items/{r}.json") for r in refs), key=lambda i: i.get("rank", 99))
+    feed = get_json(f"{WEB}/feed.json")
+    runs = feed.get("runs") if feed.get("generated_utc") == f"{when:%Y-%m-%dT%H:%MZ}" else None
+    return {"generated_utc": f"{when:%Y-%m-%dT%H:%MZ}", "runs": runs, "items": items}
 
 
 def item_html(it: dict | None) -> str:
