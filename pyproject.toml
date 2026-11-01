@@ -11,4 +11,5 @@ dependencies = [
     "truststore>=0.10",
     "replit-object-storage>=1.0",
     "claude-agent-sdk>=0.1",
+    "openai==3.42.0",
 ]

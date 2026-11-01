@@ -6,7 +6,9 @@ every request here is a cheap file read and the server can serve many devices.
   uv run uvicorn server:app --host 0.0.0.0 --port 8000
 
 Environment:
-  ANTHROPIC_API_KEY          Claude API key (for the highlights sweep)
+  ANTHROPIC_API_KEY          Claude API key (for the highlights sweep and requested highlights)
+  WEATHER_AGENT_PROVIDER     who runs the sweep: "claude" (default) or "openai" (see openai_agent.py,
+                             which also needs OPENAI_API_KEY); switch back by setting "claude"
   SWEEP_HOURS_UTC            hours (UTC) to rebuild the highlights, default "3,15" on Replit: about
                              30 min after the 18 and 06 UTC runs are complete on Open Data (0.1° at
                              02:28 and 14:27 UTC), so new highlights are out by about 04 and 16 UTC,
@@ -138,7 +140,7 @@ class Refresh:
                 "next_allowed": fields.iso(datetime.fromtimestamp(self.next_allowed(), timezone.utc)),
                 "log": list(self.log), "last_report": self.last_report,
                 "next_sweep": fields.iso(slots(datetime.now(timezone.utc))[1]) if SWEEP_HOURS else None,
-                "sweep_hours_utc": SWEEP_HOURS}
+                "sweep_hours_utc": SWEEP_HOURS, "sweep_by": agent.describe()}
 
 
 refresh = Refresh()

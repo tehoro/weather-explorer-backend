@@ -1,6 +1,11 @@
-"""Claude on the server: the highlights sweep (the weather-highlights skill with a fixed prompt,
+"""The model on the server: the highlights sweep (the weather-highlights skill with a fixed prompt,
 publishing data/highlights/latest.json) and requested highlights (the same skill researching one
 event someone asked for). The app's guide runs on the device.
+
+WEATHER_AGENT_PROVIDER chooses who runs the sweep: "claude" (the default, Claude Agent SDK) or
+"openai" (GPT-6.1 Sol through OpenAI's Agents API, see openai_agent.py). Switching back is the same
+setting; there is no automatic fallback between them, so a failed sweep is never paid for twice.
+Requested highlights stay on Claude for now.
 """
 from __future__ import annotations
 
@@ -12,9 +17,14 @@ from typing import Callable
 import claude_agent_sdk
 from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, ResultMessage, TextBlock, ToolUseBlock, query
 
+import openai_agent
+
 BACKEND = Path(__file__).parent
 FEED = BACKEND / "data" / "highlights" / "latest.json"   # same file as store.FEED
 REFRESH_MODEL = os.environ.get("WEATHER_REFRESH_MODEL", "claude-opus-5-5")
+PROVIDER = os.environ.get("WEATHER_AGENT_PROVIDER", "claude").strip().lower()
+if PROVIDER not in ("claude", "openai"):
+    raise SystemExit(f"WEATHER_AGENT_PROVIDER must be 'claude' or 'openai', not {PROVIDER!r}")
 # Claude jobs run through a wrapper that lowers their CPU priority (see claude-low-priority.sh).
 BUNDLED_CLI = Path(claude_agent_sdk.__file__).parent / "_bundled" / "claude"
 WRAPPER = BACKEND / "claude-low-priority.sh"
@@ -24,8 +34,18 @@ REFRESH_PROMPT = ("Run the weather-highlights skill now and publish a fresh high
                   "Work autonomously: there is no user to answer questions. Finish with the short report.")
 
 
+def describe() -> dict:
+    """Who runs the sweep, for the status endpoint."""
+    if PROVIDER == "openai":
+        return {"provider": "openai", "model": openai_agent.MODEL, "effort": openai_agent.EFFORT}
+    return {"provider": "claude", "model": REFRESH_MODEL}
+
+
 async def run_refresh(log: Callable[[str], None]) -> str:
     """Run the weather-highlights skill headless. Returns the agent's final report."""
+    if PROVIDER == "openai":
+        log(f"sweep provider: OpenAI {openai_agent.MODEL} at {openai_agent.EFFORT}")
+        return await openai_agent.run_refresh(log)
     return await _run(REFRESH_PROMPT, log, max_turns=80)
 
 
