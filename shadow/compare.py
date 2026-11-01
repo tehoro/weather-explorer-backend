@@ -41,7 +41,8 @@ REGIONAL = re.compile(r"\d+\s?%[^.]{0,80}\b(over|across|covering)\s+(an?\s+)?(ar
 ENS_WORDS = re.compile(r"\b(ENS|ensemble|probabilit|\d+\s?%\s+chance)", re.I)
 IMPERATIVE = re.compile(r"^(inspect|compare|follow|look|watch|note|see|check|track|examine|observe|consider)\b", re.I)
 # Wind and rain amounts, not thresholds (">25 m/s", "above 50 mm") or pressures (levels, central pressure).
-VALUE = re.compile(r"(?<![>\d.])(?<!above )(?<!over )(?<!exceeding )(\d+(?:\.\d+)?)\s?(m/s|mm|km/h|mph|kt)\b")
+VALUE = re.compile(r"(?<![>\d.])(?<!above )(?<!over )(?<!exceeding )(?<!more than )(?<!at least )(?<!than )"
+                   r"(\d+(?:\.\d+)?)\s?(m/s|mm|km/h|mph|kt)\b")
 PEAK_WORDS = re.compile(r"\b(up to|peak|maximum|max|reaches|reaching|highest|strongest)\b", re.I)
 
 
