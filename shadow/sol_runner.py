@@ -296,8 +296,8 @@ def acquisition(run: Path) -> dict:
     except (OSError, ValueError) as e:
         out["scan"] = f"unreadable: {e}"
     gaps = []
-    for f in (a / "logs").glob("*") if (a / "logs").exists() else []:
-        gaps += [f"{f.name}: {l.strip()}" for l in f.read_text(errors="replace").splitlines()
+    for f in sorted((a / "logs").rglob("*.log")) + sorted((a / "logs").rglob("*.txt")) if (a / "logs").exists() else []:
+        gaps += [f"{f.relative_to(a)}: {l.strip()}" for l in f.read_text(errors="replace").splitlines()
                  if any(w in l.lower() for w in ("missing", "not in", "no index", "failed", "skip", "error"))]
     out["log_gaps"] = gaps[:200]
     return out
@@ -363,7 +363,10 @@ def sweep(a) -> int:
     except Exception as e:
         result["artifacts"] = {"error": f"{type(e).__name__}: {e}"}
         captured = False
-    result["acquisition"] = acquisition(run)
+    try:   # a summary only: it must never stop the run being validated and the session cleaned up
+        result["acquisition"] = acquisition(run)
+    except Exception as e:
+        result["acquisition"] = {"error": f"{type(e).__name__}: {e}"}
     result["validation"] = validate(run, run / "inputs") if captured else {"ok": False, "reason": "artifacts not captured"}
     result["success"] = outcome == "ok" and result["validation"]["ok"]
     if captured and not a.keep_session:
