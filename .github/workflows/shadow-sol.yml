@@ -2,8 +2,9 @@
 # production's Claude sweeps (03 and 15 UTC), for comparison only. Nothing is published, and the
 # production server on Replit is not involved: see shadow/sol_runner.py and shadow/compare.py.
 #
-# Each job runs one shadow sweep, then compares earlier runs with production's sweep for their slot
-# (production's feed appears 30-40 minutes after the slot, so a run is compared by the next job).
+# The 03:05 and 15:05 jobs run one shadow sweep each. Production's feed appears 30-40 minutes after
+# the slot, so the 05:00 and 17:00 jobs only compare runs with production's sweep for their slot
+# (every job also compares anything left over).
 # Runs are kept for 14 days in the Actions cache, and each job uploads them as an artifact.
 #
 # Needs the repository secret OPENAI_API_KEY. Delete or disable this workflow to stop the trial.
@@ -11,7 +12,8 @@ name: Shadow sweep (Sol)
 
 on:
   schedule:
-    - cron: "5 3,15 * * *"
+    - cron: "5 3,15 * * *"     # shadow sweep
+    - cron: "0 5,17 * * *"     # compare only
   workflow_dispatch:
     inputs:
       sweep:
@@ -34,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     env:
-      SWEEP: ${{ github.event_name == 'schedule' || inputs.sweep }}
+      SWEEP: ${{ (github.event_name == 'schedule' && github.event.schedule == '5 3,15 * * *') || inputs.sweep == true }}
     steps:
       - uses: actions/checkout@v4
 
