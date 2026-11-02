@@ -42,7 +42,7 @@ REFS = Path(__file__).resolve().parents[1] / "references"
 AGENCY_SITES = set(json.loads((REFS / "agencies.json").read_text())["domains"]) | {
     (urlparse(s["warnings"]).hostname or "").removeprefix("www.")
     for s in json.loads((REFS / "states.json").read_text())["states"] if s.get("warnings")}
-GOVERNMENT = re.compile(r"\.(gov|mil|int)$|\.(gov|go|gob|gouv|govt|gv)\.[a-z]{2}$")
+GOVERNMENT = re.compile(r"(^|\.)(gov|mil|int)$|(^|\.)(gov|go|gob|gouv|govt|gv)\.[a-z]{2}$")
 
 
 def agency_url(url: str) -> bool:
