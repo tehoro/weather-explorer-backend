@@ -1,5 +1,5 @@
-# Weather Explorer backend on Replit: a Reserved VM (always on: chat connections, scheduled sweeps).
-# Secrets: ANTHROPIC_API_KEY (Claude guide and sweeps), APP_KEY (the key built into the app).
+# Weather Explorer backend on Replit: a Reserved VM (always on, for the scheduled sweeps).
+# Secrets: APP_KEY (the shared client key), ANTHROPIC_API_KEY and/or OPENAI_API_KEY (sweeps), WEB_DISPATCH_TOKEN.
 # uv installs into Replit's own environment (.pythonlibs), so start everything with `uv run`.
 modules = ["python-3.12", "bash"]
 run = "uv run --frozen uvicorn server:app --host 0.0.0.0 --port 8000"

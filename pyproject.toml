@@ -1,7 +1,8 @@
 [project]
 name = "weather-agent-backend"
 version = "0.1.0"
-description = "Data service and Claude agent backend for the ECMWF weather display prototype"
+description = "Weather Explorer backend: AI-researched weather highlights from ECMWF Open Data"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
