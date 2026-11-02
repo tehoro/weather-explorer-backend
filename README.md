@@ -37,7 +37,11 @@ All of the code and documentation in this repository was written by **Claude Opu
 model made by [Anthropic](https://www.anthropic.com), working in
 [Claude Code](https://claude.com/claude-code) at the direction of **Neil Gordon**. Neil set the
 goals, the design rules and the priorities, tested the results and decided what to keep. Claude
-wrote the code, ran the tests and wrote the commit messages. Commits it made end with a
+wrote the code, ran the tests and wrote the commit messages.
+
+Neil developed Weather Explorer as an **ECMWF Visiting Scientist**. ECMWF supported
+the work by providing the Claude Opus 5.5 usage, through its enterprise account, with which the
+code was written. That support does not make it an ECMWF product or service (see below). Commits it made end with a
 `Co-Authored-By: Claude` line.
 
 The rules Neil set are worth knowing because they explain much of the design:
@@ -59,8 +63,9 @@ forecasts, chosen and described by an AI model. It can be wrong, out of date or 
 forecasts and warnings, use your national weather service. Nobody should rely on this for safety,
 travel, operations or any decision.
 
-**Not an ECMWF service.** It uses ECMWF's free Open Data, but it is not an operational ECMWF
-service or product. ECMWF does not run, endorse or support it.
+**Not an ECMWF service.** It uses ECMWF's free Open Data and was developed with ECMWF's support
+(see above), but it is not an official or operational ECMWF product or service. ECMWF does not
+run it, maintain it or vouch for its content.
 
 **AI-chosen and AI-written content.** The highlights, their summaries, captions and citations are
 written by an AI model (currently GPT-6.1 Sol from OpenAI; Claude Opus 5.5 is the alternative).
@@ -274,6 +279,9 @@ The tests use fake research and scene inputs, so they make no paid calls.
 [claude-agent-sdk](https://github.com/anthropics/claude-agent-sdk-python) and the
 [OpenAI Python SDK](https://github.com/openai/openai-python). The full list, with versions, is in
 [`uv.lock`](uv.lock).
+
+**ECMWF** supported the development, as part of Neil Gordon's role as an ECMWF Visiting Scientist,
+by providing Claude Opus 5.5 usage through its enterprise account.
 
 **People.** Neil Gordon directed the project. Andreas Müller's Vision Pro weather display is the
 intended future partner for the app (not built yet). Thanks to the early testers.
