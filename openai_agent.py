@@ -46,6 +46,7 @@ BACKEND = Path(__file__).resolve().parent
 SKILL = ".claude/skills/weather-highlights"
 # The only backend files the sandbox gets: the skill and what its scripts need.
 ALLOWLIST = [f"{SKILL}/SKILL.md", f"{SKILL}/references/feed-schema.md", f"{SKILL}/references/states.json",
+             f"{SKILL}/references/agencies.json",
              f"{SKILL}/scripts/explainers.py", f"{SKILL}/scripts/fetch_warnings.py",
              f"{SKILL}/scripts/publish_highlights.py", f"{SKILL}/scripts/scan_fields.py",
              "fields.py", "pyproject.toml", "uv.lock"]

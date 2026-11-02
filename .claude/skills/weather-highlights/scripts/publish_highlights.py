@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 BACKEND = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(BACKEND))
@@ -34,6 +36,18 @@ CONTOUR_LAYERS = {"mslp", "z500"}
 VECTOR_LAYERS = {"wind10", "jet250", "wind850"}
 KINDS = {"highlight", "explainer"}
 MAX_EXPLAINERS = 3
+REFS = Path(__file__).resolve().parents[1] / "references"
+# Sites whose links may be cited as `warning` or `official` evidence: national services and warning
+# centres, the states' warning pages, and government domains (.gov, .gov.nz, .go.jp, .gob.mx, ...).
+AGENCY_SITES = set(json.loads((REFS / "agencies.json").read_text())["domains"]) | {
+    (urlparse(s["warnings"]).hostname or "").removeprefix("www.")
+    for s in json.loads((REFS / "states.json").read_text())["states"] if s.get("warnings")}
+GOVERNMENT = re.compile(r"\.(gov|mil|int)$|\.(gov|go|gob|gouv|govt|gv)\.[a-z]{2}$")
+
+
+def agency_url(url: str) -> bool:
+    host = (urlparse(url).hostname or "").lower()
+    return bool(GOVERNMENT.search(host)) or any(host == d or host.endswith("." + d) for d in AGENCY_SITES)
 
 
 def t(s, where, errors):
@@ -123,6 +137,10 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
                 errors.append(f"{w}.evidence[{j}]: unknown kind {e.get('kind')!r}")
             if e.get("kind") in {"warning", "news", "official", "observation"} and not str(e.get("url", "")).startswith("http"):
                 errors.append(f"{w}.evidence[{j}]: {e.get('kind')} evidence needs a real url")
+            elif e.get("kind") in {"warning", "official"} and not agency_url(e["url"]):
+                warnings.append(f"{w}.evidence[{j}]: {e['kind']} relabelled as news: {e['url']} is not an "
+                                "agency's own site (references/agencies.json)")
+                e["kind"] = "news"
         scenes = it.get("scenes", [])
         if not 1 <= len(scenes) <= 4:
             errors.append(f"{w}: expected 1-4 scenes")

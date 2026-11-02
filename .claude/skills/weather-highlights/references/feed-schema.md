@@ -64,6 +64,10 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
   are fine where no exact time is meant.
 - `evidence`: `warning`, `news`, `official` and `observation` items **must** carry a URL that came
   back from your own searches or fetches. `ensemble` and `field` items cite the scan output.
+  `warning` and `official` links must be on an agency's own site (`references/agencies.json`,
+  the sites in `states.json`, or a government domain such as `.gov`, `.gov.xx`, `.go.xx`,
+  `.gob.xx`, `.gouv.xx`, `.govt.xx`, `.mil` or `.int`). The publisher relabels any other one as
+  `news` and says so: a news story or a reposted press release is news, whatever it quotes.
 
 ## Scene
 
