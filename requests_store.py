@@ -1,9 +1,9 @@
 """Requested highlights: an event someone asked for, researched once and shared with everyone.
 
-Anyone with the app can ask for a weather situation the feed doesn't cover. Claude researches it
-with the weather-highlights skill (one request at a time, never alongside a sweep), its scene data
-is built, and it is listed for everyone for 48 hours, separately from the sweep's feed, so a new
-sweep doesn't remove it. Requests are anonymous: the device ID is used only in memory, for the
+Anyone with the app can ask for a weather situation the feed doesn't cover. The model chosen by
+WEATHER_AGENT_PROVIDER (agent.py) researches it with the weather-highlights skill (one request at a
+time, never alongside a sweep), its scene data is built, and it is listed for everyone for 48
+hours, separately from the sweep's feed, so a new sweep doesn't remove it. Requests are anonymous: the device ID is used only in memory, for the
 per-device limit, and is never stored or shown.
 
   data/requests/active.json       every live request (preparing, ready, none or failed)

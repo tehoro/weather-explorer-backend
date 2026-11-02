@@ -2,10 +2,10 @@
 publishing data/highlights/latest.json) and requested highlights (the same skill researching one
 event someone asked for). The app's guide runs on the device.
 
-WEATHER_AGENT_PROVIDER chooses who runs the sweep: "claude" (the default, Claude Agent SDK) or
-"openai" (GPT-6.1 Sol through OpenAI's Agents API, see openai_agent.py). Switching back is the same
-setting; there is no automatic fallback between them, so a failed sweep is never paid for twice.
-Requested highlights stay on Claude for now.
+WEATHER_AGENT_PROVIDER chooses who runs both the sweep and requested highlights: "claude" (the
+default, Claude Agent SDK) or "openai" (GPT-6.1 Sol through OpenAI's Agents API, see
+openai_agent.py). Switching back is the same setting; there is no automatic fallback between them,
+so a failed run is never paid for twice.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ REFRESH_PROMPT = ("Run the weather-highlights skill now and publish a fresh high
 
 
 def describe() -> dict:
-    """Who runs the sweep, for the status endpoint."""
+    """Who runs the sweep and requests, for the status endpoint."""
     if PROVIDER == "openai":
         return {"provider": "openai", "model": openai_agent.MODEL, "effort": openai_agent.EFFORT}
     return {"provider": "claude", "model": REFRESH_MODEL}
@@ -60,6 +60,9 @@ def request_prompt(topic: str, draft: Path, out: Path) -> str:
 
 async def run_request(topic: str, draft: Path, out: Path, log: Callable[[str], None]) -> str:
     """Research one requested event. Returns the agent's final report (ending with a RESULT line)."""
+    if PROVIDER == "openai":
+        log(f"request provider: OpenAI {openai_agent.MODEL} at {openai_agent.EFFORT}")
+        return await openai_agent.run_request(topic, out, log)
     return await _run(request_prompt(topic, draft, out), log, max_turns=50)
 
 

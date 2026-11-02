@@ -98,6 +98,59 @@ class Sweep(unittest.TestCase):
         self.assertIn("abandoned", json.loads((old / "result.json").read_text())["outcome"])
 
 
+class Request(unittest.TestCase):
+    """openai_agent.research: a requested highlight, published with the publisher's --request mode."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        self.feed = self.root / "highlights" / "latest.json"
+        self.feed.parent.mkdir()
+        self.feed.write_text(json.dumps({"items": []}))
+        self.out = self.root / "requests" / "abc.json"
+        self.found = True
+        self.start = Mock(side_effect=lambda c, run, *a: (run / "session.json").write_text(
+            json.dumps({"id": "sess_r", "started_unix": engine.time.time()})))
+        self.publish = Mock(return_value=subprocess.CompletedProcess([], 0, "published the requested highlight", ""))
+        stack = contextlib.ExitStack()
+        self.addCleanup(stack.close)
+        for name, value in {"RUNS": self.root / "runs", "REQUEST_RUNS": self.root / "runs" / "requests",
+                            "FEED": self.feed, "client": Mock(), "start": self.start,
+                            "finish": Mock(side_effect=self.fake_finish), "publisher": self.publish}.items():
+            stack.enter_context(patch.object(engine, name, value))
+
+    def fake_finish(self, c, run, minutes, python, log, keep_session=False, request=False):
+        self.assertTrue(request)
+        (run / "artifacts").mkdir(parents=True, exist_ok=True)
+        if self.found:
+            (run / "artifacts/requests").mkdir()
+            (run / "artifacts/requests/draft.json").write_text("{}")
+            (run / "artifacts/report.txt").write_text("Found it.\nRESULT: published")
+            return {"success": True, "outcome": "ok", "validation": {"ok": True}}
+        (run / "artifacts/report.txt").write_text("RESULT: none - no storm by that name this week")
+        return {"success": False, "outcome": "ok", "validation": {"ok": False, "reason": "no draft.json"}}
+
+    def test_found_event_is_published_to_the_requested_path(self):
+        report = engine.research("Storm over Italy", self.out, print)
+        self.assertTrue(report.endswith("RESULT: published"))
+        self.assertEqual(self.publish.call_args.kwargs["request_out"], self.out)
+        self.assertIn("<request>Storm over Italy</request>", self.start.call_args.args[6])
+
+    def test_no_such_event_returns_the_reason_and_publishes_nothing(self):
+        self.found = False
+        report = engine.research("Snow in the Sahara", self.out, print)
+        self.assertIn("RESULT: none - no storm", report)
+        self.publish.assert_not_called()
+
+    def test_failed_request_raises(self):
+        with patch.object(engine, "finish", return_value={"success": False, "outcome": "session failed",
+                                                          "validation": {"ok": False, "reason": "no draft"}}):
+            with self.assertRaisesRegex(RuntimeError, "not published"):
+                engine.research("Storm over Italy", self.out, print)
+        self.publish.assert_not_called()
+
+
 class Download(unittest.TestCase):
     """Only allowlisted files from /workspace/outputs, at safe paths, within the size limits."""
 
@@ -148,6 +201,18 @@ class Provider(unittest.IsolatedAsyncioTestCase):
                 await agent.run_refresh(print)
         claude.assert_not_awaited()
         self.assertEqual(agent.describe()["provider"], "openai")
+
+    async def test_requests_follow_the_provider(self):
+        agent = self.load("openai")
+        with patch.object(agent, "_run", new_callable=AsyncMock) as claude, \
+             patch.object(agent.openai_agent, "run_request", new_callable=AsyncMock, return_value="RESULT: published") as openai:
+            self.assertEqual(await agent.run_request("Storm", Path("d.json"), Path("o.json"), print), "RESULT: published")
+        claude.assert_not_awaited()
+        openai.assert_awaited_once_with("Storm", Path("o.json"), print)
+        agent = self.load(None)
+        with patch.object(agent, "_run", new_callable=AsyncMock, return_value="RESULT: none - x") as claude:
+            await agent.run_request("Storm", Path("d.json"), Path("o.json"), print)
+        claude.assert_awaited_once()
 
     def test_unknown_provider_is_refused(self):
         with self.assertRaises(SystemExit):
