@@ -21,7 +21,7 @@ feed.
 - [Who made this, and how](#who-made-this-and-how)
 - [Important caveats](#important-caveats)
 - [How it works](#how-it-works)
-- [A reading guide to the code](#a-reading-guide-to-the-code)
+- [A reading guide to the code](#a-reading-guide-to-the-code) (walkthrough, glossary, design decisions)
 - [Running it yourself](#running-it-yourself)
 - [Configuration](#configuration)
 - [Endpoints and feed format](#endpoints-and-feed-format)
@@ -135,7 +135,17 @@ side by side before switching.
 
 ## A reading guide to the code
 
-If you are studying this code, a suggested order:
+Start with these three short documents:
+
+- [**One highlight, end to end**](docs/walkthrough.md): a real highlight (rain on New Zealand's
+  Southern Alps) followed from the forecast files to the pixels on screen.
+- [**Glossary**](docs/glossary.md): forecast, weather and software terms in plain words.
+- [**Design decisions**](docs/design-decisions.md): why it is built this way, and what was tried
+  and dropped.
+
+The web viewer has its own [code map](https://github.com/tehoro/weather-explorer-web/blob/main/docs/code-map.md).
+
+Then read the code in roughly this order:
 
 | Read | To see |
 |---|---|
