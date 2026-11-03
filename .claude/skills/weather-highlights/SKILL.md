@@ -45,6 +45,11 @@ The scan downloads a few hundred global fields and can take several minutes: run
   - `convection`: organised deep convection anywhere (tropics and both hemispheres): heavy-rain
     clusters with high CAPE beside them.
   - `freezing`: freezing rain or drizzle falling over land (it can be ice-storm material).
+  - `stratosphere`: the polar vortices about 30 km up. For each hemisphere: the zonal-mean wind
+    at 10 hPa and 60° (`u60_ms`, daily to +360 h; below zero = reversed), the polar-cap
+    temperature at 10 hPa (`cap_t_C`), the last three days' analyses, a `flag`, and a `status`
+    for this sweep (see "Polar vortex" below). When flagged, `ensemble` gives the share of the 50
+    ENS members with reversed winds around the deterministic minimum.
   - `errors`: any signal that failed. Report failures in the feed's `gaps`.
 - `warnings.json` (official warnings, now to +48 h):
   - `meteoalarm_orange_red`: MeteoAlarm orange/red warnings for ECMWF Member and Co-operating
@@ -154,6 +159,41 @@ scan's values in plain words).
   point): what forces the wind, why it is so strong or so local, where else it happens.
 - Rank explainers after the main highlights.
 - Low-level jets are shown with the `wind850` layer (850 hPa wind with moving streaks).
+
+### Polar vortex (0-1 per hemisphere)
+
+A breakdown of the stratospheric polar vortex forecast within the next ten days or so is a weather
+event in its own right, visible in the data now; what it may do at the ground comes weeks later
+and is uncertain. Follow the scan's `stratosphere.<north|south>.status`:
+
+- `start`: add one item with the id `polar-vortex-north-<winter>` (e.g. `polar-vortex-north-2026-27`)
+  or `polar-vortex-south-<year>`. Hazards `["other"]`, status `forecast` (or `ongoing` once the
+  winds have reversed), `where` the polar cap (`bbox` `[-180, 40, 180, 90]`, or the southern
+  equivalent).
+- `continue`: the previous feed has this item and the vortex has not recovered. Keep it, with
+  the **same id**, rewritten for the latest runs: say what changed since the last sweep (read the
+  item in `data/highlights/latest.json`): reversal date earlier or later, ensemble agreement up or
+  down, a split appearing. Rank it on its merits, but don't drop it: it stays until `end`.
+- `end`: the winds are back above the threshold in the recent analyses and the whole forecast.
+  Leave the item out and mention it in your report.
+- `none`: no item, unless agencies or news report a major warming the thresholds miss (then
+  use the same id pattern, so later sweeps carry it on).
+- A `note` saying the reversal is in spring is the vortex's normal final warming each year: not a
+  breakdown story (it can be an explainer, at most).
+
+Writing it:
+- Evidence: the ECMWF model's reversal date and minimum wind ("ECMWF model (00 UTC 3 Nov run):
+  10 hPa winds at 60°N turn easterly on 6 Nov, reaching −1.1 m/s on 9 Nov"), the ensemble's
+  share of reversed members, and the official monitoring pages: NASA Ozone Watch
+  (https://ozonewatch.gsfc.nasa.gov/meteorology/) and NOAA CPC
+  (https://www.cpc.ncep.noaa.gov/products/stratosphere/), which also show the climatology.
+  News adds whether forecasters are talking about it.
+- Say plainly what it is and isn't: a reversal at 10 hPa and 60° is the standard test for a major
+  sudden stratospheric warming. Effects at the ground, such as blocking and cold spells, often
+  follow one to six weeks later, but not always and not in a predictable place. Never promise a
+  cold spell.
+- Scenes: the polar vortex recipe in the feed schema (`z10hpa`, `t10hpa`, `wind10hpa` on a polar
+  box), and the weather below (`z500` on the same box) once the story reaches the ground.
 
 ## 4. Write the scenes
 

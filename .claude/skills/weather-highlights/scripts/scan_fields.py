@@ -18,6 +18,12 @@ Signals (each is evidence for Claude to weigh, not a verdict):
                and `recent_explainers` lists them.
   * convection - organised deep convection anywhere: CAPE >= 2500 J/kg with heavy rain falling.
   * freezing - freezing rain or freezing drizzle falling over a sizeable area.
+  * stratosphere - the polar vortices: zonal-mean wind at 10 hPa and 60 degrees (westerly round the
+               vortex; easterly = reversed, the test for a major sudden stratospheric warming) and
+               polar-cap temperature at 10 hPa, daily to +360 h, plus the last three days' analyses.
+               Each hemisphere gets a `status` for the sweep (start, continue, end or none) from
+               these thresholds and whether the previous feed had a polar-vortex item, and, when
+               flagged, the share of the 50 ENS members with reversed winds.
 
 Usage (from the backend directory):
   uv run python .claude/skills/weather-highlights/scripts/scan_fields.py --out data/highlights/scan.json
@@ -421,6 +427,114 @@ def scan_freezing(run: datetime, min_area_km2: float = 5000) -> list[dict]:
     return out[:15]
 
 
+# ---- Stratosphere: the polar vortices -------------------------------------------------------
+# A reversal (easterly zonal-mean wind at 10 hPa, 60 deg) in the forecast starts a polar-vortex
+# item; in midwinter, when the vortex is normally strongest, a very weak vortex (< WEAK) does too.
+# The item continues every sweep until the wind is back above WEAK in the last three days'
+# analyses and the whole forecast: entering needs a reversal, leaving needs a recovery, so one
+# wobbly run doesn't make it come and go. Reversals in spring are the vortex's normal final warming.
+WEAK = 10.0                                            # m/s
+SEASON = {"north": {"breakdown": {11, 12, 1, 2, 3}, "midwinter": {12, 1, 2}, "final": {4, 5}},
+          "south": {"breakdown": {5, 6, 7, 8, 9}, "midwinter": {6, 7, 8}, "final": {10, 11, 12}}}
+VORTEX_PREFIX = "polar-vortex-"                        # item ids: polar-vortex-north-<winter>, ...
+
+
+def _zonal_u60(vals: np.ndarray, grid: fields.Grid, hemi: str) -> float:
+    return float(vals[int(np.argmin(np.abs(grid.lats - (60 if hemi == "north" else -60))))].mean())
+
+
+def _cap_mean(vals: np.ndarray, grid: fields.Grid, hemi: str) -> float:
+    rows = grid.lats >= 60 if hemi == "north" else grid.lats <= -60
+    w = np.cos(np.radians(grid.lats[rows]))
+    return float((vals[rows].mean(axis=1) * w).sum() / w.sum())
+
+
+def _ens_u60(run: datetime, step: int) -> list[tuple[float, float]]:
+    """10 hPa zonal-mean wind at 60N and 60S for each of the 50 ENS members at one step."""
+    path = fields.CACHE / "0p25" / f"{run:%Y%m%d%H}" / "enfo-ef" / f"u_10_{step}_members.grib2"
+    if not path.exists():
+        rel = fields.file_path(run, "0p25", "enfo", "ef", step, "pl")
+        found = fields.index_rows(rel)
+        if not found:
+            return []
+        root, rows = found
+        rows = [r for r in rows if r.get("param") == "u" and str(r.get("levelist")) == "10"]
+        rng = lambda r: {"Range": f"bytes={r['_offset']}-{r['_offset'] + r['_length'] - 1}"}
+        with ThreadPoolExecutor(8) as ex:
+            parts = list(ex.map(lambda r: fields._get(f"{root}/{rel}.grib2", rng(r)), rows))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.with_suffix(".part").write_bytes(b"".join(parts))
+        path.with_suffix(".part").rename(path)
+    return [(_zonal_u60(v, g, "north"), _zonal_u60(v, g, "south")) for _, v, g in fields.read_fields(path)]
+
+
+def _previous_vortex_items() -> dict[str, str]:
+    """Polar-vortex items in the feed on show, by hemisphere: {"north": id, ...}."""
+    try:
+        items = json.loads(explainers.FEED.read_text()).get("items", [])
+    except (OSError, ValueError):
+        return {}
+    return {h: it["id"] for it in items for h in ("north", "south")
+            if str(it.get("id", "")).startswith(f"{VORTEX_PREFIX}{h}")}
+
+
+def scan_stratosphere(run: datetime) -> dict:
+    steps = [s for s in range(0, 361, 24) if s in fields.native_steps(run.hour)]
+    jobs = [(p, s, 10) for p in ("u", "t") for s in steps]
+    past = [run - d * H for d in (24, 48, 72)]             # analyses of the last three days
+    with ThreadPoolExecutor(8) as ex:
+        past_paths = list(ex.map(lambda r: fields.opendata_file(r, "u", 0, 10), past))
+    paths = _fetch_all(run, jobs)
+    decoded = {j: fields.read_one(p) for j, p in paths.items() if p}
+    analyses = [fields.read_one(p) for p in past_paths if p]
+    previous = _previous_vortex_items()
+    out = {"run": fields.iso(run), "weak_threshold_ms": WEAK, "previous_items": previous}
+    for hemi in ("north", "south"):
+        series = [{"t": fields.iso(run + s * H), "u60_ms": round(_zonal_u60(*decoded[("u", s, 10)], hemi), 1),
+                   **({"cap_t_C": round(_cap_mean(*decoded[("t", s, 10)], hemi) - 273.15, 1)} if ("t", s, 10) in decoded else {})}
+                  for s in steps if ("u", s, 10) in decoded]
+        if not series:
+            continue
+        recent = [round(_zonal_u60(v, g, hemi), 1) for v, g in analyses] + [series[0]["u60_ms"]]
+        low = min(series, key=lambda r: r["u60_ms"])
+        month = fields.parse_time(low["t"]).month
+        season = SEASON[hemi]
+        reversed_ = [r for r in series if r["u60_ms"] < 0]
+        flag = None
+        if reversed_ and month in season["breakdown"]:
+            flag = "reversal"
+        elif low["u60_ms"] < WEAK and month in season["midwinter"]:
+            flag = "very weak"
+        recovered = min(recent + [r["u60_ms"] for r in series]) >= WEAK
+        had = previous.get(hemi)
+        status = ("continue" if not recovered else "end") if had else ("start" if flag else "none")
+        h = {"status": status, "flag": flag, "min_u60_ms": low["u60_ms"], "min_at": low["t"],
+             "first_easterly": reversed_[0]["t"] if reversed_ else None,
+             "recent_analyses_u60_ms": recent, "series": series}
+        if reversed_ and month in season["final"]:
+            h["note"] = "reversal in spring: the vortex's normal final warming, not a breakdown story"
+        if series[0].get("cap_t_C") is not None:
+            h["cap_t_rise_C"] = round(max(r.get("cap_t_C", -999) for r in series) - series[0]["cap_t_C"], 1)
+        out[hemi] = h
+    # When a story is on, the ensemble's view: the share of members with reversed winds round the
+    # deterministic minimum (three steps, 50 members each, only then: about 150 small downloads).
+    for hemi in ("north", "south"):
+        h = out.get(hemi)
+        if not h or h["status"] not in ("start", "continue"):
+            continue
+        k = int((fields.parse_time(h["min_at"]) - run) / H)
+        ens = []
+        for step in sorted({min(360, max(24, k + d)) for d in (-48, 0, 48)}):
+            members = [u[0 if hemi == "north" else 1] for u in _ens_u60(run, step)]
+            if members:
+                q = np.percentile(members, [10, 50, 90])
+                ens.append({"t": fields.iso(run + step * H), "members": len(members),
+                            "pct_easterly": round(100 * sum(u < 0 for u in members) / len(members)),
+                            "u60_p10_p50_p90_ms": [round(float(x), 1) for x in q]})
+        h["ensemble"] = ens
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ens-threshold", type=float, default=50, help="probability %% (default 50)")
@@ -440,14 +554,15 @@ def main():
                      ("gusts", lambda: (scan_gusts(run, a.gust_ms), {})),
                      ("explainers", lambda: (scan_local_winds(run), {})),
                      ("convection", lambda: (scan_convection(run), {})),
-                     ("freezing", lambda: (scan_freezing(run), {}))]:
+                     ("freezing", lambda: (scan_freezing(run), {})),
+                     ("stratosphere", lambda: (scan_stratosphere(run), {}))]:
         try:
             items, src = fn()
             result[name] = items
             sources.update(src)
         except Exception as e:  # report and carry on with the other signals
             errors[name] = f"{type(e).__name__}: {e}"
-            result[name] = []
+            result[name] = {} if name == "stratosphere" else []
     result["ensemble"] = sorted(result["ensemble"], key=lambda d: -d["extreme"] * d["area_km2"] ** 0.5)[:40]
     shown = explainers.recent()
     for x in result["explainers"]:
@@ -461,7 +576,8 @@ def main():
     if a.out:
         Path(a.out).write_text(text)
         counts = {k: len(result[k]) for k in ("ensemble", "lows", "rain24", "gusts", "explainers", "convection", "freezing")}
-        print(f"wrote {a.out}: {counts}; errors: {errors or 'none'}")
+        vortex = {h: result["stratosphere"][h]["status"] for h in ("north", "south") if h in result["stratosphere"]}
+        print(f"wrote {a.out}: {counts}; polar vortex: {vortex}; errors: {errors or 'none'}")
     else:
         print(text)
 
