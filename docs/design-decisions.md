@@ -50,6 +50,11 @@ feed, and the WMO's combined CAP feed from about 45 national services). The vali
 any "warning" or "official" citation as "news" unless it links to an agency's own site
 (`references/agencies.json`, built from the WMO's directories) or a government domain.
 
+**Sources written for people** (3 Nov). Sources are shown to viewers, so each one links a page a
+person can read (never a JSON, XML, CAP or RSS feed: the validator swaps known feeds for their
+public page and rejects the rest), and its text is one plain sentence of at most 200 characters,
+with no script or file names. The agent keeps its working notes in its own logs.
+
 **Choosing the AI model.** On 25 October 2026 cheaper Claude models were tested blind against
 Claude Opus 5.5: they missed or misnamed storms, so Opus stayed. On 1 November GPT-6.1 Sol was run
 as a *shadow* alongside production for three sweeps (publishing nothing): 13 of 15 events matched

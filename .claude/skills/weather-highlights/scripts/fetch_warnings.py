@@ -6,10 +6,13 @@ Sources:
   * GDACS - orange/red tropical cyclone, flood, drought and wildfire alerts from the
     last N days that touch any state or overseas territory in references/states.json.
   * National CAP feeds read directly (CAP_FEEDS, e.g. MetService New Zealand): every current
-    warning with its full text, areas, times (UTC) and its permanent link on the agency's site.
+    warning with its full text, areas, times (UTC) and the agency's public warnings page.
   * WMO Severe Weather Information Centre (severeweather.wmo.int) - the CAP warnings of about
     45 national services, Moderate severity or worse, grouped by agency, event and severity.
     Countries on MeteoAlarm, and agencies read directly, are left out (they are listed above).
+
+Each warning's "url" is the page a member of the public would read (cite that one); "cap" is the
+machine-readable CAP message, for checking only, never for citing.
 
 Usage: fetch_warnings.py [--hours-ahead 24] [--gdacs-days 7] [--worldwide] [--out FILE]
 Prints (or writes) a JSON summary. It never decides what counts as "impactful":
@@ -30,9 +33,13 @@ WMO = "https://severeweather.wmo.int"
 SEVERITY = {0: "Unknown", 1: "Minor", 2: "Moderate", 3: "Severe", 4: "Extreme"}  # WMO's "s"
 CAP = "{urn:oasis:names:tc:emergency:cap:1.2}"
 # National CAP feeds read directly: their RSS carries each warning's full text, which WMO's list
-# lacks. wmo_source is the feed's prefix in WMO's list, so the agency isn't listed twice.
+# lacks. wmo_source is the feed's prefix in WMO's list, so the agency isn't listed twice. page is
+# the public warnings page, used when a message has no <web> link of its own.
 CAP_FEEDS = [{"agency": "MetService", "country": "New Zealand", "code": "NZL",
-              "rss": "https://alerts.metservice.com/cap/rss", "wmo_source": "nz-nms-en"}]
+              "rss": "https://alerts.metservice.com/cap/rss", "wmo_source": "nz-nms-en",
+              "page": "https://www.metservice.com/warnings/home"}]
+# Public warnings pages by country code (states.json, territories included).
+PAGES = {x["unit"]: x["warnings"] for s in STATES for x in [s, *s.get("territories", [])] if x.get("warnings")}
 
 
 def get_text(url, timeout=30, accept="application/json"):
@@ -111,7 +118,8 @@ def meteoalarm(state, now, horizon):
         areas = sorted(a for a in rec.pop("areas") if a)
         rec["areas"] = areas[:25] + ([f"... +{len(areas) - 25} more"] if len(areas) > 25 else [])
         warnings.append(rec)
-    return {"state": state["name"], "unit": state["unit"], "warnings": warnings}
+    # url: the country's own warnings page (cite it, not the MeteoAlarm API feed).
+    return {"state": state["name"], "unit": state["unit"], "url": state.get("warnings"), "warnings": warnings}
 
 
 def gdacs(days, units, worldwide=False):
@@ -157,9 +165,9 @@ def cap_feed(feed, now, horizon):
     warnings = []
     for it in items:
         rec = {"title": it.findtext("title"), "text": (it.findtext("description") or "").strip()[:800],
-               "url": it.findtext("link")}
+               "url": feed["page"], "cap": it.findtext("link")}
         try:
-            msg = ET.fromstring(get_text(rec["url"], accept="application/xml"))
+            msg = ET.fromstring(get_text(rec["cap"], accept="application/xml"))
         except Exception as e:
             warnings.append({**rec, "error": str(e)})
             continue
@@ -170,8 +178,8 @@ def cap_feed(feed, now, horizon):
         expires = parse_t(info.findtext(f"{CAP}expires"))
         if (expires and expires < now) or (onset and onset > horizon):
             continue
-        warnings.append({**rec, "severity": info.findtext(f"{CAP}severity"), "onset": utc(onset),
-                         "expires": utc(expires), "web": info.findtext(f"{CAP}web"),
+        warnings.append({**rec, "url": info.findtext(f"{CAP}web") or feed["page"],
+                         "severity": info.findtext(f"{CAP}severity"), "onset": utc(onset), "expires": utc(expires),
                          "areas": [(a.findtext(f"{CAP}areaDesc") or "").strip() for a in info.iter(f"{CAP}area")]})
     return {"agency": feed["agency"], "country": feed["country"], "warnings": warnings}
 
@@ -196,7 +204,7 @@ def wmo_cap(now, horizon, keep, skip_sources):
             continue
         rec = groups.setdefault((a.get("mid"), a.get("event"), a["s"]), {
             "country": member.get("name"), "agency": member.get("dept"),
-            "agency_site": f"https://{member['url']}" if member.get("url") else None,
+            "url": PAGES.get(member.get("code")) or (f"https://{member['url']}" if member.get("url") else None),
             "event": a.get("event"), "severity": SEVERITY.get(a["s"]), "headline": a.get("headline"),
             "count": 0, "areas": set(), "expires": None, "cap": [], "s": a["s"]})
         rec["count"] += 1
@@ -210,8 +218,9 @@ def wmo_cap(now, horizon, keep, skip_sources):
         rec["areas"] = areas[:15] + ([f"... +{len(areas) - 15} more"] if len(areas) > 15 else [])
         out.append(rec)
     return {"note": "Severity is CAP's, not the agency's colour: many services' orange warning is "
-                    "Moderate. Times UTC. 'cap' links are the CAP messages as WMO holds them; cite the "
-                    "agency's own warnings page where you can find it.",
+                    "Moderate. Times UTC. 'url' is the agency's warnings page if known, else its home "
+                    "page: cite it, or a better page on the agency's site you found. 'cap' links are "
+                    "the raw CAP messages as WMO holds them: for checking only, never cite them.",
             "alerts": out}
 
 

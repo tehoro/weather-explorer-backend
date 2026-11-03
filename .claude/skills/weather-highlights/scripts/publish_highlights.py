@@ -50,6 +50,38 @@ def agency_url(url: str) -> bool:
     return bool(GOVERNMENT.search(host)) or any(host == d or host.endswith("." + d) for d in AGENCY_SITES)
 
 
+# Data feeds (JSON, XML, CAP, RSS, APIs) are for scripts; a reader who clicks a source should land on
+# a page written for people. Known feeds map to their public page; others must be replaced by hand.
+DATA_URL = re.compile(r"\.(json|geojson|xml|kml|kmz|csv|grib2?|nc|bufr)(\?|$)|/(api|cap|rss|feeds?|publicData)(/|\?|$)",
+                      re.IGNORECASE)
+PUBLIC_PAGES = [  # (host, path prefix, public page)
+    ("metservice.com", "/publicData/webdata/national", "https://www.metservice.com/national"),
+    ("metservice.com", "/publicData/webdata/warnings", "https://www.metservice.com/warnings/home"),
+    ("metservice.com", "/", "https://www.metservice.com/warnings/home"),
+    ("jma.go.jp", "/bosai/typhoon", "https://www.jma.go.jp/bosai/map.html#contents=typhoon"),
+    ("jma.go.jp", "/", "https://www.jma.go.jp/bosai/warning/"),
+] + [("meteoalarm.org", f"/api/v1/warnings/feeds-{s['meteoalarm']}", s["warnings"])
+     for s in json.loads((REFS / "states.json").read_text())["states"] if s.get("meteoalarm") and s.get("warnings")]
+# Evidence text is read by presenters: one plain sentence, no method notes or file names.
+EVIDENCE_MAX = 200
+JARGON = re.compile(r"\b\w+\.(json|py|log|grib2?)\b|\b(fields|scan)\.\w|get_frames|grid cell|resampled|\w\[\d+\]")
+
+
+def data_url(url: str) -> bool:
+    u = urlparse(url)
+    return bool(DATA_URL.search(u.path) or (u.hostname or "").startswith(("feeds.", "api.", "alerts.")))
+
+
+def public_page(url: str) -> str | None:
+    """The public page for a known data feed, else None."""
+    u = urlparse(url)
+    host = (u.hostname or "").lower()
+    for h, prefix, page in PUBLIC_PAGES:
+        if (host == h or host.endswith("." + h)) and u.path.startswith(prefix):
+            return page
+    return None
+
+
 def t(s, where, errors):
     try:
         return fields.parse_time(s)
@@ -135,6 +167,21 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
         for j, e in enumerate(ev):
             if e.get("kind") not in {"ensemble", "field", "warning", "news", "official", "observation"}:
                 errors.append(f"{w}.evidence[{j}]: unknown kind {e.get('kind')!r}")
+            text = str(e.get("text", ""))
+            if len(text) > EVIDENCE_MAX:
+                errors.append(f"{w}.evidence[{j}]: text is {len(text)} characters; keep it to one plain sentence "
+                              f"of at most {EVIDENCE_MAX} (source, date, the number that matters)")
+            if JARGON.search(text):
+                errors.append(f"{w}.evidence[{j}]: text has method notes ({JARGON.search(text).group(0)!r}); write it "
+                              "for a presenter, e.g. 'ECMWF model (00 UTC 2 Nov run): up to 120 mm on the ranges by 3 Nov'")
+            if str(e.get("url", "")).startswith("http") and data_url(e["url"]):
+                page = public_page(e["url"])
+                if page:
+                    warnings.append(f"{w}.evidence[{j}]: data feed {e['url']} replaced by its public page {page}")
+                    e["url"] = page
+                else:
+                    errors.append(f"{w}.evidence[{j}]: {e['url']} is a data feed (JSON/XML/CAP/RSS/API), not a page "
+                                  "people can read; link the agency's public page instead")
             if e.get("kind") in {"warning", "news", "official", "observation"} and not str(e.get("url", "")).startswith("http"):
                 errors.append(f"{w}.evidence[{j}]: {e.get('kind')} evidence needs a real url")
             elif e.get("kind") in {"warning", "official"} and not agency_url(e["url"]):

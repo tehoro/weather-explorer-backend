@@ -27,9 +27,9 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
   "summary": "Two or three plain sentences: what, where, how severe, what happens next.",
   "why_interesting": "The scientific or visual hook: why someone exploring the data would find this worth a look.",
   "evidence": [
-    {"kind": "ensemble", "text": "ENS: 100 % chance of gusts >25 m/s over western Ireland, days 1-4 (00 UTC 22 Oct run)"},
-    {"kind": "field", "text": "HRES low 949 hPa near 59N 5W at 00 UTC 25 Oct"},
-    {"kind": "warning", "text": "Met Éireann orange wind warning", "url": "https://..."},
+    {"kind": "ensemble", "text": "ECMWF ensemble (00 UTC 22 Oct run): near-certain gusts over 25 m/s in western Ireland, 22-25 Oct"},
+    {"kind": "field", "text": "ECMWF model: the low deepens to 949 hPa north-west of Scotland by 00 UTC 25 Oct"},
+    {"kind": "warning", "text": "Met Éireann: orange wind warning for Galway and Mayo, 06-18 UTC 24 Oct", "url": "https://www.met.ie/warnings"},
     {"kind": "news", "text": "Headline — Publisher, 22 Oct 2026", "url": "https://..."}
   ],
   "scenes": [ SCENE, ... ],
@@ -68,6 +68,11 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
   the sites in `states.json`, or a government domain such as `.gov`, `.gov.xx`, `.go.xx`,
   `.gob.xx`, `.gouv.xx`, `.govt.xx`, `.mil` or `.int`). The publisher relabels any other one as
   `news` and says so: a news story or a reposted press release is news, whatever it quotes.
+  Every `url` must be a page people can read, never a data feed (JSON, XML, CAP, RSS, API): the
+  publisher swaps a few known feeds for their public page and rejects the rest.
+  Each `text` is one plain sentence of at most 200 characters: the source first, then the date and
+  the number that matters. No script, file or variable names and no method notes: the publisher
+  rejects them.
 
 ## Scene
 
