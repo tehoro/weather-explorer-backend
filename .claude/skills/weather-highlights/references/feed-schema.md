@@ -106,8 +106,14 @@ setting → hazard → why the forecast system flags it.
   - `t850`: temperature at 850 hPa: air masses, cold-air outbreaks, warm sectors (no daily cycle).
   - `cape`: storm energy (most-unstable CAPE, J/kg): where thunderstorms can be strong.
   - `olr`: cloud tops from outgoing longwave radiation, a satellite-like view (white = cold, high cloud).
-- `contours` (optional): `mslp` (isobars every 4 hPa) or `z500` (every 6 dam).
-- `vectors` (optional): `wind10`, `wind850` or `jet250` (moving streaks).
+  - Stratosphere, about 30 km up (web viewer only): `z10hpa` (10 hPa height: the polar vortex's
+    shape, displacement or split), `t10hpa` (10 hPa temperature: a sudden stratospheric warming)
+    and `wind10hpa` (10 hPa wind: the polar night jet round the vortex). Use them for polar vortex
+    stories, not for weather at the ground.
+- `contours` (optional): `mslp` (isobars every 4 hPa), `z500` (every 6 dam) or `z10hpa` (every 16 dam).
+- `vectors` (optional): `wind10`, `wind850`, `jet250` or `wind10hpa` (moving streaks).
+- Boxes reaching past 75°N or 75°S are drawn on a polar grid centred on the pole, so the pole
+  itself is covered. For a hemispheric polar view use a box such as `[-180, 40, 180, 90]`.
 - Playback speed is the viewer's choice in the app (default 1 frame per second); scenes don't set it.
 - `focus`: up to 5 labelled points to mark (cities, the storm centre at peak).
 - `captions`: up to 6 short narration lines, each shown from its time onwards.
@@ -129,6 +135,7 @@ setting → hazard → why the forecast system flags it.
 | Freezing rain / ice, snow events | `t850` fill + `mslp` contours (warm air over cold: the setting) | `ptype` fill + `mslp` contours on the area, 1-2 days | — |
 | Low-level jet (explainer) | `wind850` fill + `wind850` vectors, regional box, 2 nights so the night-time peaks show | `cape` or `precip` fill where the jet's moisture feeds storms | — |
 | Tropical cyclone, alternative opener | `olr` fill + `mslp` contours: the eye and spiral bands like a satellite loop | — | — |
+| Polar vortex weakening, split or sudden stratospheric warming | `z10hpa` fill + contours, `[-180, 40, 180, 90]`, 7-10 days (6-hourly beyond +144 h is fine): the vortex stretching, moving off the pole or splitting | `t10hpa` fill + `z10hpa` contours, same box: the warming over the pole | `wind10hpa` fill + vectors: the polar night jet weakening or reversing; or `z500` / `t850` for the weather below, saying the link to the surface is weeks away and uncertain |
 
 Rules of thumb:
 - Boxes narrower than ~50° are drawn from the 0.1° data (~10 km), wider ones from 0.25°: zoom

@@ -9,6 +9,12 @@ fields needed via the .index files and HTTP range requests.
 Each global field is downloaded once and cached on disk. A request returns frames resampled
 to a grid that is regular in Web Mercator y, so the app can stretch each frame straight onto
 an MKMapRect. Values are quantised to uint16 and base64-encoded to keep payloads small.
+
+Scenes near a pole (scenes.py decides) use a polar grid instead: regular in the Lambert azimuthal
+equal-area projection centred on the pole, so the pole itself has data and nothing is stretched.
+Its package says "projection": "polar", "pole" (1 north, -1 south) and "extent" [x0, x1, y0, y1]
+in Earth radii, with x = rho sin(lon) and y = -pole rho cos(lon), rho = 2 sin((90 - pole lat) / 2);
+the first row is the y1 edge. Only the web viewer reads polar grids.
 """
 from __future__ import annotations
 
@@ -128,6 +134,19 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
           [(0, T)] + [(v, c) for v, _, c in PTYPE],
           categories=PTYPE,
           description="Rain, snow, freezing rain, ice pellets and mixes, shaded light, moderate or heavy by rate."),
+    # Stratosphere, about 30 km up (November 2026, web viewer only): the polar vortex.
+    Layer("z10hpa", "10 hPa geopotential height", "dam", ["gh"],
+          [(2860, "#3b0f70cc"), (2940, "#2c7fb8bb"), (3000, "#7fcdbb99"), (3060, "#fee39199"), (3120, "#f46d43bb"), (3180, "#a50026cc")],
+          levelist=10, contour_interval=16, app_ready=False,
+          description="The polar vortex about 30 km up: low heights mark its core, contoured every 16 dam."),
+    Layer("t10hpa", "10 hPa temperature", "°C", ["t"],
+          [(-90, "#3b0f70ee"), (-80, "#2c7fb8ee"), (-70, "#41b6c4dd"), (-60, "#a1dab4cc"), (-50, "#ffffcc99"), (-40, "#fed976cc"), (-30, "#fd8d3cdd"), (-15, "#e31a1cee")],
+          levelist=10, app_ready=False,
+          description="Temperature about 30 km up. A sudden stratospheric warming shows as a rapid rise of 30 to 50 °C over the pole."),
+    Layer("wind10hpa", "10 hPa wind", "m/s", ["u", "v"],
+          [(15, T), (25, "#c6dbef77"), (40, "#6baed6bb"), (55, "#fed976dd"), (70, "#fd8d3cee"), (90, "#e31a1cff"), (110, "#ae017eff")],
+          levelist=10, vectors=("u", "v"), app_ready=False,
+          description="The polar night jet about 30 km up: the ring of westerlies round the vortex. Easterlies at 60° latitude mean a major warming."),
 ] + [
     Layer(f"ens_{k}", title, "%", [p], PROB, source="ens",
           description=f"IFS ENS probability of {what} in a 24 h window (windows every 12 h). High values mean the ensemble agrees on an unusual event.")
@@ -138,7 +157,7 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
 ]}
 
 
-APP_READY = {l.id for l in LAYERS.values() if l.app_ready}
+APP_READY = {l.id for l in LAYERS.values() if l.app_ready}   # the rest are drawn by the web viewer only
 
 
 def layer_catalogue() -> list[dict]:
@@ -417,39 +436,88 @@ class Box:
         return lons, inv_merc_y(ys)
 
 
-def choose_resolution(box: Box, max_px: int) -> str:
+@dataclass
+class PolarBox:
+    """A rectangle in the equal-area projection centred on a pole (see the module docstring)."""
+    pole: int       # 1 north, -1 south
+    x0: float
+    x1: float
+    y0: float
+    y1: float
+
+    def span_deg(self) -> float:
+        return math.degrees(max(self.x1 - self.x0, self.y1 - self.y0))
+
+    def target(self, max_px: int, native_res: float) -> tuple[np.ndarray, np.ndarray]:
+        """Target lons and lats, both (ny, nx), first row at y1; NaN beyond the globe (rho > 2)."""
+        w, h = self.x1 - self.x0, self.y1 - self.y0
+        n = int(min(max_px, max(8, round(math.degrees(max(w, h)) / native_res))))
+        nx, ny = (n, max(8, round(n * h / w))) if w >= h else (max(8, round(n * w / h)), n)
+        x = self.x0 + (np.arange(nx) + 0.5) * w / nx
+        y = self.y1 - (np.arange(ny) + 0.5) * h / ny
+        X, Y = np.meshgrid(x, y)
+        rho = np.hypot(X, Y)
+        lats = self.pole * (90 - np.degrees(2 * np.arcsin(np.clip(rho / 2, 0, 1))))
+        lons = np.degrees(np.arctan2(X, -self.pole * Y))
+        lats[rho > 2] = np.nan
+        return lons, lats
+
+    def meta(self) -> dict:
+        return {"projection": "polar", "pole": self.pole, "extent": [self.x0, self.x1, self.y0, self.y1]}
+
+
+def polar_xy(pole: int, lon: float, lat: float) -> tuple[float, float]:
+    rho = 2 * math.sin(math.radians(90 - pole * lat) / 2)
+    return rho * math.sin(math.radians(lon)), -pole * rho * math.cos(math.radians(lon))
+
+
+def choose_resolution(box: Box | PolarBox, max_px: int) -> str:
     """0.1 deg once the box is zoomed in enough for it to show; 0.25 deg for wide views."""
-    return "0p1" if (box.east - box.west) / max_px < 0.2 else "0p25"
+    span = box.span_deg() if isinstance(box, PolarBox) else box.east - box.west
+    return "0p1" if span / max_px < 0.2 else "0p25"
+
+
+def _points(grid: Grid, lons: np.ndarray, lats: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Fractional global-grid indexes. 1-D lons and lats are a regular target (lats x lons); 2-D
+    ones give every point."""
+    if lons.ndim == 1:
+        lons, lats = lons[None, :], lats[:, None]
+    lats = np.nan_to_num(lats)
+    fx = ((lons - grid.lons[0]) % 360) / (grid.lons[1] - grid.lons[0])
+    fy = (lats - grid.lats[0]) / (grid.lats[1] - grid.lats[0])      # lats descend
+    return fx, fy
 
 
 def resample(vals: np.ndarray, grid: Grid, lons: np.ndarray, lats: np.ndarray) -> np.ndarray:
-    """Bilinear interpolation of a regular global lat/lon field onto (lats x lons), touching only
+    """Bilinear interpolation of a regular global lat/lon field onto the target, touching only
     the needed points (cheap even for 0.1 deg global fields)."""
     ny, nx = vals.shape
-    lon0, dlon = grid.lons[0], grid.lons[1] - grid.lons[0]
-    lat0, dlat = grid.lats[0], grid.lats[1] - grid.lats[0]      # dlat < 0
-    fx = ((lons - lon0) % 360) / dlon
+    fx, fy = _points(grid, lons, lats)
     ix = np.floor(fx).astype(int)
-    wx = (fx - ix)[None, :]
+    wx = fx - ix
     ix0, ix1 = ix % nx, (ix + 1) % nx
-    fy = np.clip((lats - lat0) / dlat, 0, ny - 1.000001)
+    fy = np.clip(fy, 0, ny - 1.000001)
     iy = np.floor(fy).astype(int)
-    wy = (fy - iy)[:, None]
-    v00 = vals[np.ix_(iy, ix0)]
-    v01 = vals[np.ix_(iy, ix1)]
-    v10 = vals[np.ix_(iy + 1, ix0)]
-    v11 = vals[np.ix_(iy + 1, ix1)]
-    return (v00 * (1 - wx) * (1 - wy) + v01 * wx * (1 - wy) + v10 * (1 - wx) * wy + v11 * wx * wy).astype(np.float32)
+    wy = fy - iy
+    v00, v01 = vals[iy, ix0], vals[iy, ix1]
+    v10, v11 = vals[iy + 1, ix0], vals[iy + 1, ix1]
+    out = (v00 * (1 - wx) * (1 - wy) + v01 * wx * (1 - wy) + v10 * (1 - wx) * wy + v11 * wx * wy).astype(np.float32)
+    return _off_globe(out, lats)
+
+
+def _off_globe(out: np.ndarray, lats: np.ndarray) -> np.ndarray:
+    if lats.ndim == 2:                          # polar grid corners beyond the globe: missing
+        out[~np.isfinite(lats)] = np.nan
+    return out
 
 
 def resample_nearest(vals: np.ndarray, grid: Grid, lons: np.ndarray, lats: np.ndarray) -> np.ndarray:
     """Nearest grid point, for categorical fields (averaging category codes would be meaningless)."""
     ny, nx = vals.shape
-    lon0, dlon = grid.lons[0], grid.lons[1] - grid.lons[0]
-    lat0, dlat = grid.lats[0], grid.lats[1] - grid.lats[0]
-    ix = np.rint(((lons - lon0) % 360) / dlon).astype(int) % nx
-    iy = np.clip(np.rint((lats - lat0) / dlat).astype(int), 0, ny - 1)
-    return vals[np.ix_(iy, ix)].astype(np.float32)
+    fx, fy = _points(grid, lons, lats)
+    ix = np.rint(fx).astype(int) % nx
+    iy = np.clip(np.rint(fy).astype(int), 0, ny - 1)
+    return _off_globe(vals[iy, ix].astype(np.float32), lats)
 
 
 def encode(arr: np.ndarray, lo: float, hi: float) -> str:
@@ -468,12 +536,12 @@ _pool = ThreadPoolExecutor(max_workers=8)
 def _convert(layer: Layer, a: dict[str, np.ndarray], dt_hours: float) -> np.ndarray:
     if layer.id == "mslp":
         return a["msl"] / 100.0
-    if layer.id in ("wind10", "jet250", "wind850"):
+    if layer.id in ("wind10", "jet250", "wind850", "wind10hpa"):
         u, v = layer.vectors
         return np.hypot(a[u], a[v])
     if layer.id == "t2m":
         return a["2t"] - 273.15
-    if layer.id == "t850":
+    if layer.id in ("t850", "t10hpa"):
         return a["t"] - 273.15
     if layer.id == "precip":
         return np.maximum(a["tp"] - a["tp_prev"], 0) * 1000.0 / dt_hours
@@ -485,15 +553,16 @@ def _convert(layer: Layer, a: dict[str, np.ndarray], dt_hours: float) -> np.ndar
         level = np.where(rate >= 4, 3, np.where(rate >= 1, 2, np.where(rate >= 0.1, 1, 0)))
         code = np.rint(a["ptype"]).astype(int)
         return np.where((level > 0) & (code > 0), code * 10 + level, 0).astype(np.float32)
-    if layer.id == "z500":
+    if layer.id in ("z500", "z10hpa"):
         return a["gh"] / 10.0
     return a[layer.params[0]]
 
 
-def get_frames(layer_id: str, bbox: str, start: str | None, end: str | None, max_px: int = 320,
+def get_frames(layer_id: str, bbox: str | PolarBox, start: str | None, end: str | None, max_px: int = 320,
                max_frames: int = 40) -> dict:
+    """Frames for a "west,south,east,north" box (Mercator grid) or a PolarBox."""
     layer = LAYERS[layer_id]
-    box = Box.parse(bbox)
+    box = bbox if isinstance(bbox, PolarBox) else Box.parse(bbox)
     res = choose_resolution(box, max_px)
     native = 0.1 if res == "0p1" else 0.25
     if layer.source == "ens":
@@ -603,13 +672,21 @@ def _ens_frames_for(layer: Layer, box: Box, max_px: int, run: datetime, res: str
 
 def _package(layer, box, lons, lats, frames, all_vals, run, vlons, vlats, model="IFS HRES (Open Data)", res="0p25") -> dict:
     stack = np.stack(all_vals) if all_vals else np.zeros((1, 1))
+    if lons.ndim == 2:                          # polar grid: (ny, nx) arrays
+        (ny, nx), grid = lons.shape, box.meta()
+        lat_all = np.concatenate([lats.ravel(), vlats.ravel()]) if vlats is not None else lats.ravel()
+        extent = {"west": -180.0, "east": 180.0, "south": float(np.nanmin(lat_all)), "north": float(np.nanmax(lat_all))}
+    else:
+        nx, ny, grid = len(lons), len(lats), {"projection": "mercator"}
+        extent = {"west": box.west, "south": box.south, "east": box.east, "north": box.north}
     lo, hi = float(np.nanmin(stack)), float(np.nanmax(stack))
     out_frames = []
     vec = None
     if vlons is not None and frames:
         uv = np.stack([np.stack([f["_u"], f["_v"]]) for f in frames])
         vmax = float(np.nanmax(np.abs(uv))) or 1.0
-        vec = {"nx": len(vlons), "ny": len(vlats), "lo": -vmax, "hi": vmax}
+        vny, vnx = vlons.shape if vlons.ndim == 2 else (len(vlats), len(vlons))
+        vec = {"nx": vnx, "ny": vny, "lo": -vmax, "hi": vmax}
     for f in frames:
         o = {k: v for k, v in f.items() if not k.startswith("_")}
         o["data"] = encode(f["_vals"], lo, hi)
@@ -621,8 +698,7 @@ def _package(layer, box, lons, lats, frames, all_vals, run, vlons, vlats, model=
         "layer": layer.id, "title": layer.title, "units": layer.units, "model": model,
         "resolution": res.replace("0p", "0."),
         "run": iso(run) if run else None,
-        "box": {"west": box.west, "south": box.south, "east": box.east, "north": box.north},
-        "nx": len(lons), "ny": len(lats), "projection": "mercator",
+        "box": extent, "nx": nx, "ny": ny, **grid,
         "lo": lo, "hi": hi, "stops": layer.stops, "contour_interval": layer.contour_interval,
         "vectors": vec, "frames": out_frames,
         **({"categories": [{"value": v, "label": lbl, "color": c} for v, lbl, c in layer.categories]}

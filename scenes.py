@@ -8,6 +8,9 @@ feed's generation time so they can be cached for good:
   data/scenes/<tag>/<item id>-<scene>-<role>.json.gz      role: fill, contours or vectors
 
 `build()` adds each scene's file names to the feed as scene["data"] = {"fill": ..., ...}.
+Scenes reaching past POLAR_LAT are built on a polar grid (fields.PolarBox), which only the web
+viewer can draw; their files go in scene["web_data"] instead, so the iPhone app (build 25) builds
+those scenes itself from Open Data, in Mercator, as it does for any scene without files.
 """
 from __future__ import annotations
 
@@ -30,6 +33,7 @@ KEEP = 2                                       # feeds whose scene files are kep
 PIXELS = {"fill": 400, "contours": 200, "vectors": 160}
 MARGIN = 0.35   # extra area around the scene box, for wide screens and a little panning
 MAX_GROW = 2.0  # most a box's pixel limits grow, to keep detail where the projection widens it
+POLAR_LAT = 75  # scenes reaching further towards a pole use a polar grid
 
 
 def _tag(feed: dict) -> str:
@@ -109,6 +113,23 @@ def _box(bbox: list[float]) -> str:
     return _box_and_grow(bbox)[0]
 
 
+def _polar_box(bbox: list[float]) -> fields.PolarBox | None:
+    """A polar grid for a scene reaching past POLAR_LAT: its outline in the projection centred on
+    that pole, widened by MARGIN each side, and always holding the pole itself."""
+    w, s, e, n = bbox
+    if e <= w:
+        e += 360
+    pole = 1 if n >= POLAR_LAT else -1 if s <= -POLAR_LAT else 0
+    if not pole:
+        return None
+    xy = [fields.polar_xy(pole, lon, lat) for lon, lat in _outline(w, s, e, n, 32)] + [(0.0, 0.0)]
+    x0, x1 = min(p[0] for p in xy), max(p[0] for p in xy)
+    y0, y1 = min(p[1] for p in xy), max(p[1] for p in xy)
+    dx, dy = (x1 - x0) * MARGIN, (y1 - y0) * MARGIN
+    lim = 1.9                                # rho 1.9: 72 degrees of latitude past the equator
+    return fields.PolarBox(pole, max(-lim, x0 - dx), min(lim, x1 + dx), max(-lim, y0 - dy), min(lim, y1 + dy))
+
+
 def _frames(start: str, end: str) -> int:
     try:
         hours = (fields.parse_time(end) - fields.parse_time(start)).total_seconds() / 3600
@@ -149,11 +170,12 @@ def build_items(items: list[dict], tag: str) -> int:
     for item in items:
         for n, scene in enumerate(item.get("scenes", [])):
             files = {}
-            box, grow = _box_and_grow(scene["bbox"])
+            polar = _polar_box(scene["bbox"])
+            box, grow = (polar, 1.0) if polar else _box_and_grow(scene["bbox"])
             for role, layer in _roles(scene).items():
                 if layer not in fields.LAYERS:
                     continue
-                name = f"{item['id']}-{n}-{role}.json.gz"
+                name = f"{item['id']}-{n}{'p' if polar else ''}-{role}.json.gz"
                 path = out_dir / name
                 if not path.exists():
                     try:
@@ -170,7 +192,7 @@ def build_items(items: list[dict], tag: str) -> int:
                     written += 1
                 files[role] = f"{tag}/{name}"
             if files:
-                scene["data"] = files
+                scene["web_data" if polar else "data"] = files
     store.save_scenes(out_dir)
     return written
 
@@ -185,7 +207,7 @@ def missing(feed_path: Path = store.FEED) -> bool:
         feed = json.loads(feed_path.read_text())
     except Exception:
         return False
-    return any("data" not in s for i in feed.get("items", []) for s in i.get("scenes", []))
+    return any("data" not in s and "web_data" not in s for i in feed.get("items", []) for s in i.get("scenes", []))
 
 
 def path_for(rel: str) -> Path | None:

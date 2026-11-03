@@ -32,8 +32,8 @@ SCHEMA_VERSION = 1
 HAZARDS = {"wind", "rain", "flood", "snow", "ice", "heat", "cold", "tropical-cyclone", "convection",
            "drought", "fire-weather", "fog", "dust", "coastal", "other"}
 STATUSES = {"observed", "ongoing", "forecast"}
-CONTOUR_LAYERS = {"mslp", "z500"}
-VECTOR_LAYERS = {"wind10", "jet250", "wind850"}
+CONTOUR_LAYERS = {"mslp", "z500", "z10hpa"}
+VECTOR_LAYERS = {"wind10", "jet250", "wind850", "wind10hpa"}
 KINDS = {"highlight", "explainer"}
 MAX_EXPLAINERS = 3
 REFS = Path(__file__).resolve().parents[1] / "references"
@@ -193,12 +193,13 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             errors.append(f"{w}: expected 1-4 scenes")
         for j, sc in enumerate(scenes):
             sw = f"{w}.scenes[{j}]"
-            if sc.get("fill") not in fields.APP_READY:
-                why = " (not available in highlights yet: the iPhone app can't show it)" if sc.get("fill") in fields.LAYERS else ""
-                errors.append(f"{sw}: fill {sc.get('fill')!r}{why}; use one of {sorted(fields.APP_READY)}")
+            # Layers with app_ready=False are drawn by the web viewer only; the iPhone app is not
+            # kept up to date (since Nov 2026), so they are allowed.
+            if sc.get("fill") not in fields.LAYERS:
+                errors.append(f"{sw}: fill {sc.get('fill')!r}; use one of {sorted(fields.LAYERS)}")
             if sc.get("contours") not in (None, *CONTOUR_LAYERS):
                 errors.append(f"{sw}: contours must be one of {sorted(CONTOUR_LAYERS)} or omitted")
-            vectors_ok = sorted(VECTOR_LAYERS & fields.APP_READY)
+            vectors_ok = sorted(VECTOR_LAYERS)
             if sc.get("vectors") not in (None, *vectors_ok):
                 errors.append(f"{sw}: vectors must be one of {vectors_ok} or omitted")
             check_bbox(sc.get("bbox"), sw, errors)
