@@ -243,16 +243,25 @@ def download(c, sid: str, run: Path, log: Log) -> dict:
         elif a.size_bytes > MAX_FILE or total + a.size_bytes > MAX_TOTAL:
             skipped.append(f"{a.path}: too large ({a.size_bytes} bytes)")
         else:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            with c.beta.agents.sessions.artifacts.with_streaming_response.content(a.id, session_id=sid) as r:
-                r.stream_to_file(dest)
-            if dest.stat().st_size != a.size_bytes:
-                skipped.append(f"{a.path}: size mismatch after download")
-                dest.unlink()
+            try:   # one file that will not download is skipped, not fatal (validate() needs only the draft)
+                retry(lambda: fetch(c, sid, a, dest), log)
+            except Exception as e:
+                skipped.append(f"{a.path}: download failed ({type(e).__name__}: {e})")
+                log(f"openai: could not download {rel} ({type(e).__name__}: {e})")
+                dest.unlink(missing_ok=True)
                 continue
             total += a.size_bytes
             got.append(str(rel))
     return {"downloaded": got, "skipped": skipped, "bytes": total}
+
+
+def fetch(c, sid: str, a, dest: Path) -> None:
+    """One artifact to dest, checked against its listed size."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with c.beta.agents.sessions.artifacts.with_streaming_response.content(a.id, session_id=sid) as r:
+        r.stream_to_file(dest)
+    if dest.stat().st_size != a.size_bytes:
+        raise OSError(f"size mismatch: got {dest.stat().st_size} of {a.size_bytes} bytes")
 
 
 def publisher(root: Path, draft: Path, python: str, log_path: Path, cache: Path | None = None,
@@ -358,26 +367,32 @@ def finish(c, run: Path, minutes: float, python: str, log: Log, keep_session: bo
               "minutes": round((time.time() - started) / 60, 1),
               "usage": s.usage.to_dict() if getattr(s, "usage", None) else None,
               "usage_by_turn": [t.usage.to_dict() for t in turns if t.usage]}
-    try:
+    try:   # a record only: it must never stop the artifacts being collected
         items = retry(lambda: list(c.beta.agents.sessions.items.list(sid, order="asc", limit=100)), log)
         save(run / "items.json", [i.to_dict() for i in items])
         result["tool_use"] = {}
         for i in items:
             kind = getattr(i, "type", "?")
             result["tool_use"][kind] = result["tool_use"].get(kind, 0) + 1
+    except Exception as e:
+        result["tool_use"] = {"error": f"{type(e).__name__}: {e}"}
+        log(f"openai: could not list the session's items ({type(e).__name__}: {e})")
+    try:
         result["artifacts"] = download(c, sid, run, log)
         captured = True
     except Exception as e:
         result["artifacts"] = {"error": f"{type(e).__name__}: {e}"}
+        log(f"openai: could not collect artifacts ({type(e).__name__}: {e}); session {sid} kept")
         captured = False
     try:   # a summary only: it must never stop the run being validated and the session cleaned up
         result["acquisition"] = acquisition(run)
     except Exception as e:
         result["acquisition"] = {"error": f"{type(e).__name__}: {e}"}
     result["validation"] = (validate(run, run / "inputs", python, request) if captured
-                            else {"ok": False, "reason": "artifacts not captured"})
+                            else {"ok": False, "reason": f"artifacts not captured ({result['artifacts']['error']})"})
     result["success"] = outcome == "ok" and result["validation"]["ok"]
-    if captured and not keep_session:
+    failed = captured and any("download failed" in x for x in result["artifacts"]["skipped"])
+    if captured and not failed and not keep_session:
         try:
             c.beta.agents.sessions.delete(sid)
             result["session_deleted"] = True

@@ -170,6 +170,30 @@ class Download(unittest.TestCase):
             self.assertEqual(len(got["skipped"]), 4)
             self.assertFalse(any(Path(tmp).rglob("passwd*")))
 
+    def test_a_failed_download_is_retried_then_skipped_not_fatal(self):
+        def art(path):
+            return Mock(id=path, path=path, size_bytes=10, to_dict=lambda: {"path": path})
+        arts = [art("/workspace/outputs/highlights/draft.json"), art("/workspace/outputs/logs/scan.log")]
+        c = MagicMock()
+        c.beta.agents.sessions.artifacts.list.return_value = arts
+        calls = {"draft": 0}
+
+        def stream_to_file(dest):
+            if dest.name == "draft.json":
+                calls["draft"] += 1
+                if calls["draft"] == 1:
+                    raise ConnectionError("reset")
+                return Path(dest).write_bytes(b"x" * 10)
+            raise ConnectionError("always")
+        stream = c.beta.agents.sessions.artifacts.with_streaming_response.content.return_value.__enter__.return_value
+        stream.stream_to_file.side_effect = stream_to_file
+        with tempfile.TemporaryDirectory() as tmp, patch.object(engine.time, "sleep"):
+            got = engine.download(c, "sess", Path(tmp), print)
+            self.assertEqual(got["downloaded"], ["highlights/draft.json"])
+            self.assertEqual(calls["draft"], 2)
+            self.assertIn("download failed", got["skipped"][0])
+            self.assertFalse((Path(tmp) / "artifacts/logs/scan.log").exists())
+
 
 class Provider(unittest.IsolatedAsyncioTestCase):
     """agent.py: Claude unless WEATHER_AGENT_PROVIDER=openai; no fallback between them."""
