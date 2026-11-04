@@ -21,8 +21,11 @@ Signals (each is evidence for Claude to weigh, not a verdict):
   * convection - organised deep convection anywhere: CAPE >= 2500 J/kg with heavy rain falling.
   * freezing - freezing rain or freezing drizzle falling over a sizeable area.
   * stratosphere - the polar vortices: zonal-mean wind at 10 hPa and 60 degrees (westerly round the
-               vortex; easterly = reversed, the test for a major sudden stratospheric warming) and
-               polar-cap temperature at 10 hPa, daily to +360 h, plus the last three days' analyses.
+               vortex; easterly = reversed, the test for a major sudden stratospheric warming),
+               polar-cap temperature and pole-minus-60 temperature at 10 hPa, 12-hourly and as daily
+               means to +360 h (with the first of two easterly days in a row), NASA Ozone Watch's
+               analysis and 1979-onwards climatology for each day, the vortex's centres daily to
+               +240 h, plus the last three days' analyses.
                Each hemisphere gets a `status` for the sweep (start, continue, end or none) from
                these thresholds and whether the previous feed had a polar-vortex item, and, when
                flagged, the share of the 50 ENS members with reversed winds.
@@ -501,9 +504,102 @@ def _previous_vortex_items() -> dict[str, str]:
             if str(it.get("id", "")).startswith(f"{VORTEX_PREFIX}{h}")}
 
 
+def _pole_minus_60(vals: np.ndarray, grid: fields.Grid, hemi: str) -> float:
+    """Zonal-mean temperature at the pole minus at 60 deg (K). Above zero, with the wind reversed,
+    is the temperature half of the WMO definition of a major warming."""
+    sign = 1 if hemi == "north" else -1
+    row = lambda lat: int(np.argmin(np.abs(grid.lats - lat)))  # noqa: E731
+    return float(vals[row(89.75 * sign)].mean() - vals[row(60 * sign)].mean())
+
+
+def _vortex_centres(vals: np.ndarray, grid: fields.Grid, hemi: str, k: int = 3) -> dict:
+    """Where the vortex is: up to k separate lows of 10 hPa height poleward of 45 deg (lobes, deepest
+    first, at least 20 deg of arc apart and in the lowest quarter of heights there) and the highest
+    height (the anticyclone that pushes it). On a 1 deg subsample, so it is cheap."""
+    rows = grid.lats >= 45 if hemi == "north" else grid.lats <= -45
+    z = vals[rows][::4, ::4] / 10.0                         # dam
+    lats, lons = grid.lats[rows][::4], grid.lons[::4]
+    mins = local_minima(z, 12) & (z <= np.percentile(z, 25))
+    found = []
+    for j, i in sorted(zip(*np.nonzero(mins)), key=lambda c: z[c]):
+        lat, lon = float(lats[j]), float(lons[i])
+        if all(_arc(lat, lon, f[0], f[1]) >= 20 for f in found):
+            found.append((lat, lon, float(z[j, i])))
+        if len(found) == k:
+            break
+    j, i = np.unravel_index(int(np.argmax(z)), z.shape)
+    return {"lows": [{"lat": round(a, 1), "lon": round(o, 1), "dam": round(d)} for a, o, d in found],
+            "high": {"lat": round(float(lats[j]), 1), "lon": round(float(lons[i]), 1), "dam": round(float(z[j, i]))}}
+
+
+def _arc(lat1, lon1, lat2, lon2) -> float:
+    p1, p2, dl = np.radians(lat1), np.radians(lat2), np.radians(lon2 - lon1)
+    return float(np.degrees(np.arccos(np.clip(np.sin(p1) * np.sin(p2) + np.cos(p1) * np.cos(p2) * np.cos(dl), -1, 1))))
+
+
+# NASA Ozone Watch publishes the MERRA-2 / GEOS FP analysis of the same two quantities with their
+# 1979-onwards climatology (minimum, percentiles, maximum by date), one file per July-June season.
+NASA = "https://ozonewatch.gsfc.nasa.gov/meteorology/figures/merra2"
+NASA_FILES = {"north": ("wind/u60n_10_{y}_merra2.txt", "temperature/t60_90n_10_{y}_merra2.txt"),
+              "south": ("wind/u60s_10_{y}_merra2.txt", "temperature/t60_90s_10_{y}_merra2.txt")}
+NASA_COLS = ("data", "min", "p10", "p30", "mean", "p70", "p90", "max", "fcst")
+
+
+def _nasa(hemi: str, now: datetime) -> tuple[dict, dict]:
+    """{date: row} for the wind and the cap temperature (K), or empty dicts if NASA can't be read."""
+    years = [now.year if now.month >= 7 else now.year - 1] if hemi == "north" else [now.year, now.year - 1]
+    out = []
+    for path in NASA_FILES[hemi]:
+        rows = {}
+        for y in years:
+            try:
+                text = fields._get(f"{NASA}/{path.format(y=y)}", timeout=30, attempts=2).decode()
+            except Exception:
+                continue
+            for line in text.splitlines():
+                p = line.split()
+                if len(p) == 10 and p[0][:4].isdigit() and "-" in p[0]:
+                    rows[p[0]] = dict(zip(NASA_COLS, (float(x) for x in p[1:])))
+            if rows:
+                break
+        out.append(rows)
+    return out[0], out[1]
+
+
+def _rank(v: float, c: dict) -> str:
+    """Where a value sits in NASA's climatology for its date."""
+    if v < c["min"]:
+        return "below the record minimum"
+    if v > c["max"]:
+        return "above the record maximum"
+    for lo, hi, name in (("min", "p10", "lowest 10 %"), ("p10", "p30", "10-30th percentile"), ("p30", "p70", "near normal"),
+                         ("p70", "p90", "70-90th percentile")):
+        if v <= c[hi]:
+            return name
+    return "highest 10 %"
+
+
+def _climate(day: dict, wind: dict, temp: dict) -> None:
+    """Adds NASA's climatology for the day (u60 and cap T) to a daily entry."""
+    w, t = wind.get(day["date"]), temp.get(day["date"])
+    if w:
+        day["u60_normal_ms"] = round(w["mean"], 1)
+        day["u60_record_min_max_ms"] = [round(w["min"], 1), round(w["max"], 1)]
+        day["u60_rank"] = _rank(day["u60_ms"], w)
+    if t and day.get("cap_t_C") is not None:
+        k = day["cap_t_C"] + 273.15
+        day["cap_t_anomaly_K"] = round(k - t["mean"], 1)
+        day["cap_t_record_min_max_C"] = [round(t["min"] - 273.15, 1), round(t["max"] - 273.15, 1)]
+        day["cap_t_rank"] = _rank(k, t)
+
+
 def scan_stratosphere(run: datetime) -> dict:
-    steps = [s for s in range(0, 361, 24) if s in fields.native_steps(run.hour)]
-    jobs = [(p, s, 10) for p in ("u", "t") for s in steps]
+    """Twice-daily zonal-mean wind at 60 deg, cap temperature and pole-minus-60 temperature to +360 h,
+    as daily means (a single snapshot can dip below zero for six hours), the vortex's centres daily
+    to +240 h, and NASA's analysis and climatology for context."""
+    steps = [s for s in range(0, 361, 12) if s in fields.native_steps(run.hour)]
+    zsteps = [s for s in steps if s % 24 == 0 and s <= 240]
+    jobs = [(p, s, 10) for p in ("u", "t") for s in steps] + [("gh", s, 10) for s in zsteps]
     past = [run - d * H for d in (24, 48, 72)]             # analyses of the last three days
     with ThreadPoolExecutor(8) as ex:
         past_paths = list(ex.map(lambda r: fields.opendata_file(r, "u", 0, 10), past))
@@ -511,13 +607,39 @@ def scan_stratosphere(run: datetime) -> dict:
     decoded = {j: fields.read_one(p) for j, p in paths.items() if p}
     analyses = [fields.read_one(p) for p in past_paths if p]
     previous = _previous_vortex_items()
-    out = {"run": fields.iso(run), "weak_threshold_ms": WEAK, "previous_items": previous}
+    newest = fields.latest_run()
+    out = {"run": fields.iso(run), "weak_threshold_ms": WEAK, "previous_items": previous,
+           "animation_note": (f"Scenes show the newest run ({fields.iso(newest)}) to +144 h and this run after it; "
+                              "numbers in captions come from check_scenes.py, not from this series.")
+           if newest != run else None}
     for hemi in ("north", "south"):
-        series = [{"t": fields.iso(run + s * H), "u60_ms": round(_zonal_u60(*decoded[("u", s, 10)], hemi), 1),
-                   **({"cap_t_C": round(_cap_mean(*decoded[("t", s, 10)], hemi) - 273.15, 1)} if ("t", s, 10) in decoded else {})}
-                  for s in steps if ("u", s, 10) in decoded]
+        series = []
+        for s in steps:
+            if ("u", s, 10) not in decoded:
+                continue
+            r = {"t": fields.iso(run + s * H), "u60_ms": round(_zonal_u60(*decoded[("u", s, 10)], hemi), 1)}
+            if ("t", s, 10) in decoded:
+                r["cap_t_C"] = round(_cap_mean(*decoded[("t", s, 10)], hemi) - 273.15, 1)
+                r["pole_minus_60_K"] = round(_pole_minus_60(*decoded[("t", s, 10)], hemi), 1)
+            series.append(r)
         if not series:
             continue
+        daily: dict[str, list[dict]] = {}
+        for r in series:
+            daily.setdefault(r["t"][:10], []).append(r)
+        days = []
+        for d, rs in daily.items():
+            e = {"date": d, "u60_ms": round(float(np.mean([r["u60_ms"] for r in rs])), 1)}
+            for k in ("cap_t_C", "pole_minus_60_K"):
+                if all(k in r for r in rs):
+                    e[k] = round(float(np.mean([r[k] for r in rs])), 1)
+            days.append(e)
+        try:
+            wind, temp = _nasa(hemi, run)
+        except Exception:
+            wind, temp = {}, {}
+        for e in days:
+            _climate(e, wind, temp)
         recent = [round(_zonal_u60(v, g, hemi), 1) for v, g in analyses] + [series[0]["u60_ms"]]
         low = min(series, key=lambda r: r["u60_ms"])
         month = fields.parse_time(low["t"]).month
@@ -531,9 +653,25 @@ def scan_stratosphere(run: datetime) -> dict:
         recovered = min(recent + [r["u60_ms"] for r in series]) >= WEAK
         had = previous.get(hemi)
         status = ("continue" if not recovered else "end") if had else ("start" if flag else "none")
+        # The reversal date to quote: the first of at least two days in a row with an easterly daily mean.
+        onset = next((a["date"] for a, b in zip(days, days[1:]) if a["u60_ms"] < 0 and b["u60_ms"] < 0), None)
+        warm = next((a["date"] for a, b in zip(days, days[1:])
+                     if a.get("pole_minus_60_K", -1) > 0 and b.get("pole_minus_60_K", -1) > 0), None)
         h = {"status": status, "flag": flag, "min_u60_ms": low["u60_ms"], "min_at": low["t"],
              "first_easterly": reversed_[0]["t"] if reversed_ else None,
-             "recent_analyses_u60_ms": recent, "series": series}
+             "reversal_onset_day": onset, "easterly_days": sum(1 for e in days if e["u60_ms"] < 0),
+             "pole_warmer_than_60_from": warm,
+             "recent_analyses_u60_ms": recent, "daily": days, "series": series}
+        latest_nasa = max((d for d, r in wind.items() if r["fcst"] == 0 and r["data"] > -9000), default=None)
+        if latest_nasa:
+            r = wind[latest_nasa]
+            h["nasa_latest_analysis"] = {"date": latest_nasa, "u60_ms": round(r["data"], 1),
+                                         "normal_ms": round(r["mean"], 1), "record_min_ms": round(r["min"], 1),
+                                         "rank": _rank(r["data"], r), "source": "NASA Ozone Watch (MERRA-2 / GEOS FP), 1979 onwards"}
+        elif reversed_ or low["u60_ms"] < WEAK:
+            h["nasa_error"] = "NASA Ozone Watch files not read; climatology context unavailable"
+        h["centres"] = [{"t": fields.iso(run + s * H), **_vortex_centres(*decoded[("gh", s, 10)], hemi)}
+                        for s in zsteps if ("gh", s, 10) in decoded]
         if reversed_ and month in season["final"]:
             h["note"] = "reversal in spring: the vortex's normal final warming, not a breakdown story"
         if series[0].get("cap_t_C") is not None:

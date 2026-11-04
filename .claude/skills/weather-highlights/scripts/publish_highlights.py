@@ -65,6 +65,19 @@ PUBLIC_PAGES = [  # (host, path prefix, public page)
 # Evidence text is read by presenters: one plain sentence, no method notes or file names.
 EVIDENCE_MAX = 200
 JARGON = re.compile(r"\b\w+\.(json|py|log|grib2?)\b|\b(fields|scan)\.\w|get_frames|grid cell|resampled|\w\[\d+\]")
+# Everything a viewer reads (titles, summary, why_interesting, talking points, captions, evidence)
+# is about the weather, never about how the sweep was made: no scan, skill, app, scripts, files,
+# failed fetches or source formats. Those caveats go in the feed's `gaps` or the report.
+PROCESS = re.compile(
+    r"\b(the|this|our) (scan|skill|publisher|validator|script)\b"
+    r"|\b(scan|skill|sweep|app|script|tool)'s\b"
+    r"|\b(could|can) ?not be (fetched|retrieved|downloaded|read|checked|obtained|accessed|loaded)\b"
+    r"|\b(was|were|is|are) not (fetched|obtained|retrieved|downloaded|loaded)\b"
+    r"|\b(CAP|PDF|JSON|RSS|XML|API)\b|\b(duplicate|separate|another) (explainer|item|highlight)\b"
+    r"|\b\w+\.(json|py|log|grib2?)\b|\bfields\.\w|\bget_frames\b")
+# An evidence line states what the source says (a fact, a number), not that it exists.
+VACUOUS = re.compile(r"\b(provides?|gives?|offers?|adds?) (\w+ ){0,2}context\b|\bfor (more |further )?context\b"
+                     r"|\b(monitors?|tracks?|follows?) (the )?(situation|vortex|event|story)\b", re.IGNORECASE)
 
 
 def data_url(url: str) -> bool:
@@ -99,6 +112,57 @@ def check_bbox(b, where, errors):
     width = (e - w) % 360 or 360
     if width < 2 or (n - s) < 2:
         errors.append(f"{where}: bbox smaller than 2 degrees")
+
+
+def public_texts(it: dict):
+    """(where, text) for everything a viewer reads in an item."""
+    for k in ("title", "summary", "why_interesting", "confidence"):
+        if isinstance(it.get(k), str):
+            yield k, it[k]
+    for j, tp in enumerate(it.get("talking_points") or []):
+        yield f"talking_points[{j}]", str(tp)
+    for j, e in enumerate(it.get("evidence") or []):
+        yield f"evidence[{j}]", str(e.get("text", ""))
+    for j, sc in enumerate(it.get("scenes") or []):
+        yield f"scenes[{j}].title", str(sc.get("title", ""))
+        for c in sc.get("captions") or []:
+            yield f"scenes[{j}].captions", str(c.get("text", ""))
+
+
+def check_captions(sc: dict, sw: str, warnings: list) -> None:
+    """Captions must sit on frames the scene will have: the viewer shows a caption from its time
+    until the next caption (or its `until`), so one between frames first appears on a later frame
+    and one after the last frame never appears. Warnings, not errors: the frames are fixed only
+    when the scenes are built (the builder then moves stray captions to the nearest frame)."""
+    caps = sc.get("captions") or []
+    if not caps or str(sc.get("fill", "")).startswith("ens_") or sc.get("fill") not in fields.LAYERS:
+        return
+    try:
+        times = fields.scene_times(sc["fill"], sc.get("start"), sc.get("end"))
+    except Exception:
+        return
+    if not times:
+        return
+    shown = ", ".join(f"{t:%d}T{t:%H}" for t in times)
+    for c in caps:
+        try:
+            at = fields.parse_time(c["at"])
+        except Exception:
+            continue
+        if at > times[-1]:
+            warnings.append(f"{sw}: caption at {c['at']} is after the last frame ({fields.iso(times[-1])}) and would "
+                            f"never show; move it to a frame (frames: {shown})")
+        elif at < times[0]:
+            warnings.append(f"{sw}: caption at {c['at']} is before the first frame ({fields.iso(times[0])})")
+        elif at not in times:
+            warnings.append(f"{sw}: caption at {c['at']} falls between frames and would first show at the next one; "
+                            f"use a frame time (frames: {shown})")
+    last = max((c.get("at", "") for c in caps), default="")
+    if (last and not any(c.get("until") for c in caps)
+            and times[-1] - fields.parse_time(last) >= timedelta(hours=24)):
+        lc = next(c for c in caps if c.get("at") == last)
+        warnings.append(f"{sw}: the last caption ({last}: {str(lc.get('text', ''))[:50]!r}) stays on screen for a day or more, to "
+                        f"the end ({fields.iso(times[-1])}); make sure it is still true then, or add a caption or an `until`")
 
 
 def check_explainers(items: list, errors: list) -> None:
@@ -161,6 +225,19 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             errors.append(f"{w}.where: centre must be [lat, lon]")
         for k in ("start", "end"):
             t(it.get("when", {}).get(k, ""), f"{w}.when.{k}", errors)
+        for k, text in public_texts(it):
+            m = PROCESS.search(text)
+            if m:
+                errors.append(f"{w}.{k}: {m.group(0)!r} is about how the sweep was made, not the weather; viewers read "
+                              "this. Rewrite it for them, and put method caveats in the feed's `gaps` or your report")
+        try:
+            peak = fields.parse_time(it.get("when", {}).get("peak", ""))
+            gen = fields.parse_time(feed.get("generated_utc", ""))
+            if it.get("status") == "forecast" and peak < gen - timedelta(hours=6):
+                warnings.append(f"{w}: status is forecast but the peak ({fields.iso(peak)}) is before publication; "
+                                "is the event already fading? Say so, or choose a newer one")
+        except Exception:
+            pass
         ev = it.get("evidence", [])
         if not ev:
             errors.append(f"{w}: at least one evidence item required")
@@ -174,6 +251,12 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             if JARGON.search(text):
                 errors.append(f"{w}.evidence[{j}]: text has method notes ({JARGON.search(text).group(0)!r}); write it "
                               "for a presenter, e.g. 'ECMWF model (00 UTC 2 Nov run): up to 120 mm on the ranges by 3 Nov'")
+            if VACUOUS.search(text):
+                errors.append(f"{w}.evidence[{j}]: {VACUOUS.search(text).group(0)!r} says nothing; state what the source "
+                              "shows, with its number (e.g. 'NASA Ozone Watch: 9 m/s at 60°N on 1 Nov, the lowest for "
+                              "the date since 1979')")
+            elif e.get("kind") in {"field", "ensemble"} and not re.search(r"\d", text.split(":", 1)[-1]):
+                warnings.append(f"{w}.evidence[{j}]: {e['kind']} evidence with no number; give the value that matters")
             if str(e.get("url", "")).startswith("http") and data_url(e["url"]):
                 page = public_page(e["url"])
                 if page:
@@ -210,7 +293,26 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
                 if not str(sc.get("fill", "")).startswith("ens_") and (s0 < lo or s1 > hi):
                     warnings.append(f"{sw}: window partly outside Open Data range {fields.iso(lo)}..{fields.iso(hi)}; frames will be clipped")
             for c in sc.get("captions", []):
-                t(c.get("at", ""), f"{sw}.captions", errors)
+                ca = t(c.get("at", ""), f"{sw}.captions", errors)
+                if c.get("until"):
+                    cu = t(c["until"], f"{sw}.captions.until", errors)
+                    if ca and cu and cu <= ca:
+                        errors.append(f"{sw}: caption until {c['until']} must be after its at {c['at']}")
+            if len(sc.get("captions", [])) > 6:
+                errors.append(f"{sw}: at most 6 captions")
+            par = sc.get("parallels")
+            if par is not None and not (isinstance(par, list) and len(par) <= 3
+                                        and all(isinstance(x, (int, float)) and -89 <= x <= 89 for x in par)):
+                errors.append(f"{sw}: parallels must be a list of up to 3 latitudes, e.g. [60]")
+            box = sc.get("bbox")
+            if isinstance(box, list) and len(box) == 4:
+                bw, bs, be, bn = box
+                for f in sc.get("focus") or []:
+                    lon, lat = f.get("lon", 0), f.get("lat", 0)
+                    inside = bs <= lat <= bn and ((lon - bw) % 360) <= ((be - bw) % 360 or 360)
+                    if not inside:
+                        warnings.append(f"{sw}: focus {f.get('label')!r} lies outside the scene box, so it isn't on the map")
+            check_captions(sc, sw, warnings)
     if sweep:
         check_explainers(items, errors)
     return errors, warnings

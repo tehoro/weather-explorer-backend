@@ -33,7 +33,7 @@ KEEP = 2                                       # feeds whose scene files are kep
 PIXELS = {"fill": 400, "contours": 200, "vectors": 160}
 MARGIN = 0.35   # extra area around the scene box, for wide screens and a little panning
 MAX_GROW = 2.0  # most a box's pixel limits grow, to keep detail where the projection widens it
-POLAR_LAT = 75  # scenes reaching further towards a pole use a polar grid
+POLAR_LAT = fields.SCENE_POLAR_LAT  # scenes reaching further towards a pole use a polar grid
 
 
 def _tag(feed: dict) -> str:
@@ -113,31 +113,6 @@ def _box(bbox: list[float]) -> str:
     return _box_and_grow(bbox)[0]
 
 
-def _polar_box(bbox: list[float]) -> fields.PolarBox | None:
-    """A polar grid for a scene reaching past POLAR_LAT: its outline in the projection centred on
-    that pole, widened by MARGIN each side, and always holding the pole itself."""
-    w, s, e, n = bbox
-    if e <= w:
-        e += 360
-    pole = 1 if n >= POLAR_LAT else -1 if s <= -POLAR_LAT else 0
-    if not pole:
-        return None
-    xy = [fields.polar_xy(pole, lon, lat) for lon, lat in _outline(w, s, e, n, 32)] + [(0.0, 0.0)]
-    x0, x1 = min(p[0] for p in xy), max(p[0] for p in xy)
-    y0, y1 = min(p[1] for p in xy), max(p[1] for p in xy)
-    dx, dy = (x1 - x0) * MARGIN, (y1 - y0) * MARGIN
-    lim = 1.9                                # rho 1.9: 72 degrees of latitude past the equator
-    return fields.PolarBox(pole, max(-lim, x0 - dx), min(lim, x1 + dx), max(-lim, y0 - dy), min(lim, y1 + dy))
-
-
-def _frames(start: str, end: str) -> int:
-    try:
-        hours = (fields.parse_time(end) - fields.parse_time(start)).total_seconds() / 3600
-    except Exception:
-        hours = 72
-    return int(min(48, max(4, hours // 3 + 1)))
-
-
 def _roles(scene: dict) -> dict[str, str]:
     """Which layer each role needs, skipping ones the fill layer already provides."""
     fill, contours, vectors = scene["fill"], scene.get("contours"), scene.get("vectors")
@@ -170,7 +145,7 @@ def build_items(items: list[dict], tag: str) -> int:
     for item in items:
         for n, scene in enumerate(item.get("scenes", [])):
             files = {}
-            polar = _polar_box(scene["bbox"])
+            polar = fields.scene_polar_box(scene["bbox"], MARGIN)
             box, grow = (polar, 1.0) if polar else _box_and_grow(scene["bbox"])
             for role, layer in _roles(scene).items():
                 if layer not in fields.LAYERS:
@@ -180,7 +155,8 @@ def build_items(items: list[dict], tag: str) -> int:
                 if not path.exists():
                     try:
                         data = fields.get_frames(layer, box, scene.get("start"), scene.get("end"),
-                                                 round(PIXELS[role] * grow), _frames(scene.get("start", ""), scene.get("end", "")))
+                                                 round(PIXELS[role] * grow),
+                                                 fields.scene_frame_count(scene.get("start", ""), scene.get("end", "")))
                     except Exception as e:
                         print(f"[scenes] {item['id']} scene {n} {layer}: {e}", file=sys.stderr, flush=True)
                         continue
@@ -193,8 +169,48 @@ def build_items(items: list[dict], tag: str) -> int:
                 files[role] = f"{tag}/{name}"
             if files:
                 scene["web_data" if polar else "data"] = files
+            if "fill" in files:
+                align_captions(scene, _valid_times(out_dir / files["fill"].split("/", 1)[1]), item["id"], n)
     store.save_scenes(out_dir)
     return written
+
+
+def _valid_times(path: Path) -> list[str]:
+    try:
+        return [f["valid_time"] for f in json.loads(gzip.decompress(path.read_bytes()))["frames"]]
+    except Exception:
+        return []
+
+
+def align_captions(scene: dict, times: list[str], item_id: str = "?", n: int = 0) -> None:
+    """Put every caption on a frame the scene really has. The viewer shows a caption from its time
+    until the next one, so a caption between frames would first appear on a later frame, and one
+    after the last frame would never appear. Each moves to the nearest frame (the last one at the
+    latest); a caption's `until` likewise. The publisher warns about these, so this is a safety net.
+    """
+    if not times or not scene.get("captions"):
+        return
+    ts = [fields.parse_time(t) for t in times]
+
+    def nearest(at: str) -> str:
+        t = fields.parse_time(at)
+        return times[min(range(len(ts)), key=lambda i: (abs((ts[i] - t).total_seconds()), ts[i]))]
+
+    for c in scene["captions"]:
+        try:
+            at = nearest(c["at"])
+        except Exception:
+            continue
+        if at != c["at"]:
+            print(f"[scenes] {item_id} scene {n}: caption {c['at']} moved to frame {at}", file=sys.stderr, flush=True)
+            c["at"] = at
+        if c.get("until"):
+            try:
+                c["until"] = nearest(c["until"]) if fields.parse_time(c["until"]) <= ts[-1] else None
+            except Exception:
+                c["until"] = None
+            if not c["until"] or c["until"] <= c["at"]:
+                c.pop("until")
 
 
 def remove(tag: str) -> None:

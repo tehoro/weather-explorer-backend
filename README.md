@@ -95,6 +95,7 @@ don't hammer their servers: the code fetches only what it needs, and so should a
  warning feeds ───▶│ fetch_warnings.py  MeteoAlarm, GDACS, WMO and national CAP warnings                   │
  web search ──────▶│ AI agent (agent.py / openai_agent.py) runs the weather-highlights skill:              │
                    │   weighs the evidence, writes ~15 highlights with 1–4 scenes each                     │
+                   │ check_scenes.py  checks each caption against the frames the viewer will show          │
                    │ publish_highlights.py  validates the feed (schema, links, times) before publishing   │
                    │ scenes.py        cuts Open Data to each scene's box and time window (gzipped JSON)    │
                    │ server.py        serves the feed and scene files; schedules sweeps at 03 and 15 UTC   │
@@ -115,6 +116,9 @@ don't hammer their servers: the code fetches only what it needs, and so should a
    - choose about fifteen highlights and write one to four *scenes* for each (a map layer, a box,
      a time window and captions), following
      [`feed-schema.md`](.claude/skills/weather-highlights/references/feed-schema.md),
+   - check every caption against the frames the viewer will show
+     ([`check_scenes.py`](.claude/skills/weather-highlights/scripts/check_scenes.py)): which run and
+     frame it appears on, the values at the named places and where the extremes are,
    - publish through the validator
      ([`publish_highlights.py`](.claude/skills/weather-highlights/scripts/publish_highlights.py)),
      which refuses a feed with errors and lists them so the agent can fix them.
@@ -156,9 +160,10 @@ Then read the code in roughly this order:
 |---|---|
 | [`SKILL.md`](.claude/skills/weather-highlights/SKILL.md) | How an AI agent is given a procedure in plain English: evidence first, honest sourcing, explicit rules. |
 | [`feed-schema.md`](.claude/skills/weather-highlights/references/feed-schema.md) | The contract between the agent, the server and the viewers. |
-| [`publish_highlights.py`](.claude/skills/weather-highlights/scripts/publish_highlights.py) | Checking AI output with ordinary code before anyone sees it: schema, times, layers, and relabelling citations that aren't from an official source. |
+| [`publish_highlights.py`](.claude/skills/weather-highlights/scripts/publish_highlights.py) | Checking AI output with ordinary code before anyone sees it: schema, times, layers, captions on real frames, no process notes in what viewers read, and relabelling citations that aren't from an official source. |
+| [`check_scenes.py`](.claude/skills/weather-highlights/scripts/check_scenes.py) | Keeping AI-written text consistent with the animation: every caption is checked against the frame it appears on. |
 | [`fields.py`](fields.py) | Fetching only the needed parts of large GRIB2 files with `.index` files and HTTP Range requests; regridding; the layer catalogue (colours, units, contour intervals). |
-| [`scan_fields.py`](.claude/skills/weather-highlights/scripts/scan_fields.py) | Simple objective detection of heavy rain, strong gusts, deep lows, local winds, convection, freezing rain, polar vortex breakdowns (10 hPa winds at 60°), polar lows, warm intrusions into the Arctic and Antarctic, and deep Arctic and Southern Ocean lows. |
+| [`scan_fields.py`](.claude/skills/weather-highlights/scripts/scan_fields.py) | Simple objective detection of heavy rain, strong gusts, deep lows, local winds, convection, freezing rain, polar vortex breakdowns (10 hPa winds at 60° as daily means, the polar-cap temperature against NASA's climatology, the vortex's lobes), polar lows, warm intrusions into the Arctic and Antarctic, and deep Arctic and Southern Ocean lows. |
 | [`fetch_warnings.py`](.claude/skills/weather-highlights/scripts/fetch_warnings.py) | Reading official warnings: MeteoAlarm's API, GDACS, and CAP (Common Alerting Protocol) feeds. |
 | [`server.py`](server.py) | A small FastAPI server with a scheduler, a shared lock so jobs never overlap, and catch-up after restarts. |
 | [`openai_agent.py`](openai_agent.py) | Running an agent in an isolated sandbox, then validating its output again outside the sandbox. |

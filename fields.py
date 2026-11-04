@@ -346,7 +346,12 @@ def previous_step(run: datetime, step: int) -> int:
 
 
 def frame_times(start: datetime, end: datetime, latest: datetime, max_frames: int) -> list[datetime]:
-    """Valid times at the native cadence (3 h, 6 h beyond +144 h), thinned to max_frames."""
+    """Valid times at the native cadence (3 h, 6 h beyond +144 h), thinned to max_frames.
+
+    Thinning keeps an even cadence on synoptic hours (every 6, 12 or 24 h from 00 UTC), so captions
+    written for 00 or 12 UTC land on a frame, and the window's last native time is always kept so
+    the scene really reaches its end.
+    """
     times, t = [], start.replace(minute=0, second=0, microsecond=0)
     t += ((-t.hour) % 3) * H
     while t <= end:
@@ -354,10 +359,40 @@ def frame_times(start: datetime, end: datetime, latest: datetime, max_frames: in
         if lead <= 144 or t.hour % 6 == 0:
             times.append(t)
         t += 3 * H
+    native = times
+    for cadence in (6, 12, 24):
+        if len(times) <= max_frames:
+            break
+        times = [t for t in native if t.hour % cadence == 0]
     if len(times) > max_frames:
-        stride = math.ceil(len(times) / max_frames)
-        times = times[::stride]
+        times = times[::math.ceil(len(times) / max_frames)]
+    if native and times and times[-1] != native[-1]:
+        times = times[:-1] + [native[-1]] if len(times) >= max_frames else times + [native[-1]]
     return times
+
+
+SCENE_POLAR_LAT = 75   # scenes reaching further towards a pole use a polar grid
+
+
+def scene_frame_count(start: str, end: str) -> int:
+    """How many frames a highlight scene gets (scenes.py builds them; check_scenes.py checks them)."""
+    try:
+        hours = (parse_time(end) - parse_time(start)).total_seconds() / 3600
+    except Exception:
+        hours = 72
+    return int(min(48, max(4, hours // 3 + 1)))
+
+
+def scene_times(layer_id: str, start: str | None, end: str | None) -> list[datetime]:
+    """The valid times a highlight scene's frames will have (not for ENS layers, whose frames are
+    24 h windows). A frame whose field is missing on Open Data is skipped when built."""
+    layer = LAYERS[layer_id]
+    latest = latest_run()
+    t0 = parse_time(start) if start else latest
+    t1 = parse_time(end) if end else t0 + 72 * H
+    t0, t1 = max(t0, latest - 72 * H), min(t1, latest + 360 * H)
+    times = frame_times(t0, t1, latest, scene_frame_count(start or "", end or ""))
+    return [t for t in times if pick_source(t, latest, layer.needs_interval)]
 
 
 # --------------------------------------------------------------------------------------------
@@ -469,6 +504,26 @@ class PolarBox:
 def polar_xy(pole: int, lon: float, lat: float) -> tuple[float, float]:
     rho = 2 * math.sin(math.radians(90 - pole * lat) / 2)
     return rho * math.sin(math.radians(lon)), -pole * rho * math.cos(math.radians(lon))
+
+
+def scene_polar_box(bbox: list[float], margin: float) -> PolarBox | None:
+    """A polar grid for a scene box reaching past SCENE_POLAR_LAT: its outline in the projection
+    centred on that pole, widened by `margin` each side, and always holding the pole itself."""
+    w, s, e, n = bbox
+    if e <= w:
+        e += 360
+    pole = 1 if n >= SCENE_POLAR_LAT else -1 if s <= -SCENE_POLAR_LAT else 0
+    if not pole:
+        return None
+    k = 32
+    edge = [(w + (e - w) * i / k, lat) for i in range(k + 1) for lat in (s, n)]
+    edge += [(lon, s + (n - s) * i / k) for i in range(k + 1) for lon in (w, e)]
+    xy = [polar_xy(pole, lon, lat) for lon, lat in edge] + [(0.0, 0.0)]
+    x0, x1 = min(p[0] for p in xy), max(p[0] for p in xy)
+    y0, y1 = min(p[1] for p in xy), max(p[1] for p in xy)
+    dx, dy = (x1 - x0) * margin, (y1 - y0) * margin
+    lim = 1.9                                # rho 1.9: 72 degrees of latitude past the equator
+    return PolarBox(pole, max(-lim, x0 - dx), min(lim, x1 + dx), max(-lim, y0 - dy), min(lim, y1 + dy))
 
 
 def choose_resolution(box: Box | PolarBox, max_px: int) -> str:

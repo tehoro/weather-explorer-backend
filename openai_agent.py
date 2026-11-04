@@ -49,6 +49,7 @@ ALLOWLIST = [f"{SKILL}/SKILL.md", f"{SKILL}/references/feed-schema.md", f"{SKILL
              f"{SKILL}/references/agencies.json",
              f"{SKILL}/scripts/explainers.py", f"{SKILL}/scripts/fetch_warnings.py",
              f"{SKILL}/scripts/publish_highlights.py", f"{SKILL}/scripts/scan_fields.py",
+             f"{SKILL}/scripts/check_scenes.py",
              "fields.py", "pyproject.toml", "uv.lock"]
 INPUTS = ("latest.json", "explainer_history.json")
 OUTPUTS = "/workspace/outputs"
@@ -84,7 +85,9 @@ PROMPT = (
     "moment, with places and values (for example 'Almost stationary south-west of Iwo To' or "
     "'HRES: 959 hPa, gusts near 69 m/s'). Don't address the viewer ('Compare', 'Watch', 'Look for', "
     "'Follow') and don't use captions for caveats; caveats belong in the summary, confidence and gaps. "
-    "Write the full draft with all scenes and run the original publish_highlights.py "
+    "Write the full draft with all scenes, run check_scenes.py on it as SKILL.md says and correct the "
+    "captions and text until the numbers, places and times match the frames, then run the original "
+    "publish_highlights.py "
     "validator until it publishes. This is the full workflow, not a sample. Do not claim completion unless "
     "both acquisition stages, research, drafting and the validator really succeeded. Work from "
     "/workspace/backend. When finished, copy data/highlights into /workspace/outputs/highlights, save the "
@@ -111,7 +114,7 @@ def request_prompt(topic: str) -> str:
         "Captions follow the feed schema: 2-4 per scene at different times, narrating what is happening "
         "then, with places and values, never addressing the viewer and never used for caveats. "
         "Work from /workspace/backend. If there is a real current or forecast weather situation, write the "
-        "one-item draft to data/requests/draft.json and run "
+        "one-item draft to data/requests/draft.json, check it with check_scenes.py and correct it, then run "
         "`uv run --frozen python .claude/skills/weather-highlights/scripts/publish_highlights.py --request "
         "data/requests/out.json data/requests/draft.json` until it publishes. When finished, copy "
         "data/requests into /workspace/outputs/requests, and write /workspace/outputs/report.txt with what "

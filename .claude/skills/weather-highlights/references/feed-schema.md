@@ -92,7 +92,7 @@ setting → hazard → why the forecast system flags it.
   "focus": [{"lat": 53.3, "lon": -6.3, "label": "Dublin"}],
   "captions": [
     {"at": "2026-10-23T12:00Z", "text": "A shallow wave on the polar front"},
-    {"at": "2026-10-24T06:00Z", "text": "Pressure has fallen ~30 hPa in 24 h: a 'weather bomb'"}
+    {"at": "2026-10-24T06:00Z", "text": "Pressure has fallen ~30 hPa in 24 h: a 'weather bomb'", "until": "2026-10-25T00:00Z"}
   ],
   "hints_3d": {"cross_section": [[50, -25], [58, 0]], "camera": "from the south-west, low angle", "emphasise": "sting-jet region south of the centre"}
 }
@@ -116,7 +116,14 @@ setting → hazard → why the forecast system flags it.
   itself is covered. For a hemispheric polar view use a box such as `[-180, 40, 180, 90]`.
 - Playback speed is the viewer's choice in the app (default 1 frame per second); scenes don't set it.
 - `focus`: up to 5 labelled points to mark (cities, the storm centre at peak).
-- `captions`: up to 6 short narration lines, each shown from its time onwards.
+- `captions`: up to 6 short narration lines. Each shows from its `at` until the next caption, or
+  until its optional `until` if that is sooner; the last one stays to the end of the scene. Every
+  `at` must be a frame time (see the skill: 3-hourly to +144 h, then 6-hourly, thinned to an even
+  6, 12 or 24 h on 00/12 UTC for long windows); `check_scenes.py` lists them. The scene builder moves a
+  caption that misses to the nearest frame. Write each as an event at that moment, with numbers
+  from the frame shown.
+- `parallels` (optional): up to 3 latitudes drawn as labelled circles, e.g. `[60]` for the 60°N
+  circle round which the polar vortex wind is averaged.
 - `hints_3d`: free-form guidance for 3D clients (Vision Pro). The 2D app ignores it.
 - Layers cover roughly the last 72 h and up to +360 h from the latest run. `ens_*` layers are
   24 h windows every 12 h from the latest 00/12 UTC ensemble; start/end pick the windows shown.
@@ -139,7 +146,7 @@ setting → hazard → why the forecast system flags it.
 | Warm intrusion into the Arctic or Antarctic | `tcwv` fill + `mslp` contours, polar box (e.g. `[-180, 60, 180, 90]`): the moisture plume drawn poleward | `t2m` fill, same box: the warm air over the ice | — |
 | Arctic cyclone or extreme Southern Ocean low | `mslp` fill + contours, polar box, 3-5 days | `wind10` fill + `wind10` vectors + `mslp` contours | — (sea ice is not in Open Data: describe it in words) |
 | Katabatic wind (explainer) | `t2m` fill + `wind10` vectors, the ice sheet and coast (e.g. `[120, -80, 170, -62]` for Adélie Land): cold air draining off the plateau | `wind10` fill + `wind10` vectors on the scan's `scene_bbox`, 2-3 days, 3-hourly | — |
-| Polar vortex weakening, split or sudden stratospheric warming | `z10hpa` fill + contours, `[-180, 40, 180, 90]`, 7-10 days (6-hourly beyond +144 h is fine): the vortex stretching, moving off the pole or splitting | `t10hpa` fill + `z10hpa` contours, same box: the warming over the pole | `wind10hpa` fill + vectors: the polar night jet weakening or reversing; or `z500` / `t850` for the weather below, saying the link to the surface is weeks away and uncertain |
+| Polar vortex weakening, split or sudden stratospheric warming | `z10hpa` fill + contours, `[-180, 40, 180, 90]`, 7-10 days (6-hourly beyond +144 h is fine): the vortex stretching, moving off the pole or splitting | `t10hpa` fill + `z10hpa` contours, same box: the warming over the pole | `wind10hpa` fill + vectors + `"parallels": [60]`: the jet pushed off the pole, so its 60° average weakens or reverses; or `z500` / `t850` for the weather below, saying the link to the surface is weeks away and uncertain |
 
 Rules of thumb:
 - Boxes narrower than ~50° are drawn from the 0.1° data (~10 km), wider ones from 0.25°: zoom
