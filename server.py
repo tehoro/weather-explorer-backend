@@ -10,10 +10,10 @@ Environment:
   WEATHER_AGENT_PROVIDER     who runs the sweep and requests: "claude" (default) or "openai" (see
                              openai_agent.py, which also needs OPENAI_API_KEY); switch back by
                              setting "claude"
-  SWEEP_HOURS_UTC            hours (UTC) to rebuild the highlights, default "3,15" on Replit: about
-                             30 min after the 18 and 06 UTC runs are complete on Open Data (0.1° at
-                             02:28 and 14:27 UTC), so new highlights are out by about 04 and 16 UTC,
-                             early morning and late afternoon in Europe and New Zealand; empty = never
+  SWEEP_HOURS_UTC            hours (UTC) to rebuild the highlights, default "10,22" on Replit: about
+                             25 min after the 00 and 12 UTC runs are complete to +360 h on Open Data
+                             (0.1° at 09:35 and 21:35 UTC), so the scan, the scenes and the ensemble
+                             all use one run; new highlights are out by about 11 and 23 UTC; empty = never
   SWEEP_MIN_HOURS            minimum gap between sweeps (default 6)
   REQUEST_HOURS              how long a requested highlight is listed (default 48)
   DISCOVERY_GIST_ID          GitHub gist the backend keeps updated with its current tunnel address,
@@ -55,8 +55,8 @@ import store
 import tokens
 import web_notify
 
-# Sweeps run at fixed times, after the 18 and 06 UTC runs are complete on Open Data (02:28 and 14:27 UTC).
-SWEEP_HOURS = sorted(int(h) for h in os.environ.get("SWEEP_HOURS_UTC", "3,15" if store.ON_REPLIT else "").split(",") if h.strip())
+# Sweeps run at fixed times, after the 00 and 12 UTC runs are complete on Open Data (09:35 and 21:35 UTC).
+SWEEP_HOURS = sorted(int(h) for h in os.environ.get("SWEEP_HOURS_UTC", "10,22" if store.ON_REPLIT else "").split(",") if h.strip())
 # Claude jobs (the sweep and requested highlights) run one at a time on the small server.
 BUSY = asyncio.Lock()
 SWEEP_MIN_H = float(os.environ.get("SWEEP_MIN_HOURS", "6"))
