@@ -17,7 +17,10 @@ spacing), and for every caption:
   - for `mslp` / `z10hpa` / `z500` contours, the lowest centre;
   - for the 10 hPa layers, the zonal-mean wind at 60 deg, the polar-cap mean temperature and the
     pole-minus-60 deg temperature difference of that frame's run and step;
-  - each number in the caption with the fill's unit that the frame doesn't contain (FLAG).
+  - each number in the caption with the fill's unit that the frame doesn't contain (FLAG);
+  - a caption whose numbers describe a much weaker spot than the frame's strongest colours (NOTE).
+
+For a categorical fill (`ptype`) values are printed as their names (e.g. "Snow, moderate").
 
 A FLAG line is a likely mismatch between the text and the animation: fix the caption (or the scene)
 and run again. Values are from the same box and resolution the viewer shows, without its margin.
@@ -98,6 +101,17 @@ def fmt(v: float) -> str:
     return f"{v:.1f}" if abs(v) < 100 else f"{v:.0f}"
 
 
+# Layers where "more" is what the eye goes to (bright colours), so a caption quoting a much weaker
+# value than the frame's peak is describing something the viewer won't pick out.
+PEAK_UNITS = {"mm/h", "mm", "m/s", "%", "J/kg", "kg/m²"}
+
+
+def show(v: float, unit: str, cats: dict[int, str]) -> str:
+    if cats:
+        return cats.get(int(round(v)), "nothing falling") if np.isfinite(v) else "no data"
+    return f"{fmt(v)} {unit}".rstrip()
+
+
 def unit_numbers(text: str, unit: str) -> list[float]:
     if not unit:
         return []
@@ -128,7 +142,7 @@ def stratosphere(run: str, step: int, hemi: int) -> str:
     return f"10 hPa: zonal-mean u at {60 * hemi:+d}° {u60:+.1f} m/s, cap mean T {capt:.1f} °C, pole minus 60° {dpole:+.1f} K"
 
 
-def check_scene(it: dict, n: int, sc: dict, flags: list[str]) -> None:
+def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) -> None:
     name = f"{it['id']} scene {n}"
     fill = sc.get("fill")
     print(f"\n  SCENE {n}: {sc.get('title')}  [{fill}{' + ' + sc['contours'] if sc.get('contours') else ''}]")
@@ -179,10 +193,12 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str]) -> None:
         if not ok.any():
             continue
         unit = pkg.get("units", "")
+        cats = {c[0]: c[1] for c in (fields.LAYERS[fill].categories or [])}
         vmax, vmin = np.nanmax(np.where(ok, v, np.nan)), np.nanmin(np.where(ok, v, np.nan))
         jmax, jmin = np.nanargmax(np.where(ok, v, -np.inf)), np.nanargmin(np.where(ok, v, np.inf))
-        print(f"      max {fmt(vmax)} {unit} at {where(lats.flat[jmax], lons.flat[jmax], focus)}; "
-              f"min {fmt(vmin)} {unit} at {where(lats.flat[jmin], lons.flat[jmin], focus)}")
+        if not cats:
+            print(f"      max {fmt(vmax)} {unit} at {where(lats.flat[jmax], lons.flat[jmax], focus)}; "
+                  f"min {fmt(vmin)} {unit} at {where(lats.flat[jmin], lons.flat[jmin], focus)}")
         for fo in focus:
             d = km(fo["lat"], fo["lon"], lats, lons)
             d = np.where(ok, d, np.inf)
@@ -192,7 +208,10 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str]) -> None:
                 j = int(np.nanargmax(np.where(near, v, -np.inf)))
                 dist = float(d.flat[j])
                 rel = "" if dist < 25 else f" {dist:.0f} km {bearing(fo['lat'], fo['lon'], lats.flat[j], lons.flat[j])}"
-                print(f"      {fo['label']}: {fmt(here)} {unit} (strongest within {NEAR_KM} km {fmt(v.flat[j])}{rel})")
+                if cats:
+                    print(f"      {fo['label']}: {show(here, unit, cats)}")
+                else:
+                    print(f"      {fo['label']}: {fmt(here)} {unit} (strongest within {NEAR_KM} km {fmt(v.flat[j])}{rel})")
         if cont and cont.get("frames"):
             cf = next((x for x in cont["frames"] if x["valid_time"] == times[k]), None)
             if cf:
@@ -205,10 +224,16 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str]) -> None:
             if f.get("run") and f.get("step") is not None:
                 print("      " + stratosphere(f["run"], f["step"], 1 if (sc["bbox"][3] > 0) else -1))
         span = (vmax - vmin) or 1.0
-        for x in unit_numbers(c["text"], unit):
+        said = unit_numbers(c["text"], unit)
+        for x in said:
             if not vmin - 0.15 * span <= x <= vmax + 0.15 * span:
                 print(f"      FLAG: the caption says {fmt(x)} {unit}, but this frame ranges {fmt(vmin)} to {fmt(vmax)}")
                 flags.append(f"{name}: caption {c['at']} says {fmt(x)} {unit}; the frame ranges {fmt(vmin)}..{fmt(vmax)}")
+        if unit in PEAK_UNITS and said and max(said) < 0.5 * vmax:
+            msg = (f"the frame's strongest colours are {fmt(vmax)} {unit} at {where(lats.flat[jmax], lons.flat[jmax], focus)}, "
+                   f"but the caption quotes {fmt(max(said))} {unit}")
+            print(f"      NOTE: {msg}: describe what the eye goes to, or crop the box")
+            notes.append(f"{name}: caption {c['at']}: {msg}")
     last = caps[-1] if caps else None
     if last and not last.get("until") and last["at"] < times[-1]:
         print(f"    last caption stays on screen to {times[-1]}: is it still true then?")
@@ -226,15 +251,18 @@ def main():
     feed = json.loads(Path(a.draft).read_text())
     print(f"newest run on Open Data: {fields.iso(fields.latest_run())}")
     flags: list[str] = []
+    notes: list[str] = []
     for it in feed.get("items", []):
         if a.item and a.item not in it.get("id", ""):
             continue
         print("=" * 100 + f"\n{it.get('id')}: {it.get('title')}")
         for n, sc in enumerate(it.get("scenes", [])):
             try:
-                check_scene(it, n, sc, flags)
+                check_scene(it, n, sc, flags, notes)
             except Exception as e:          # one scene failing doesn't stop the others
                 print(f"    could not check: {type(e).__name__}: {e}")
+    if notes:
+        print("\nNOTES (the text points at a weaker spot than the animation shows; look again):\n  - " + "\n  - ".join(notes))
     print("\n" + ("FLAGS (fix these, then run again):\n  - " + "\n  - ".join(flags) if flags else "No flags."))
 
 

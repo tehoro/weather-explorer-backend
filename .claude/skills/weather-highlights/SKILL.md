@@ -151,11 +151,18 @@ Aim for fifteen (minimum five, maximum eighteen). Prefer:
 4. Forecast situations in the next few days over past ones, but include a recent observed event
    if its aftermath is in the news and the data still shows it (Open Data keeps about 72 h). An
    event whose peak is already past at publication, and fading, is `observed`, not `forecast`,
-   and is worth a slot only if something happened.
-5. Events the model fields actually show where the story says. If a warning area gets little in
-   the model (2 mm/h where an orange rain warning is out), either say so plainly or leave the
-   item out; don't caption the map as if it showed the warned hazard. Make the scene window
-   cover the warning window, and quote ensemble probabilities for that window and place.
+   and is worth a slot only if something happened. The feed stays up until the next sweep, about
+   12 h later: an event that ends within 12 h of publication is mostly over before people see it.
+   Take it only if it is a big story, and then show what is still to come or the aftermath. The
+   publisher warns about these.
+5. Events the model fields actually show where the story says. **Compare like with like.** Rain
+   warnings give totals (mm in 1, 6, 12 or 24 h). The `precip` layer is the mean rate over the
+   3 or 6 h before each frame, so 6 mm/h on the map can be 60 mm in a day, and an hour's
+   downpour is smoothed out. Check and show a rain warning with `rain24` (the 24 h total ending at
+   each frame) and quote totals; keep `precip` for how the rain moves. Only if the model's totals
+   really fall short of the warning, say so plainly or leave the item out; don't caption the
+   map as if it showed the warned hazard. Make the scene window cover the warning window, and
+   quote ensemble probabilities for that window and place.
 
 Collapse duplicates (a typhoon's rain, wind and low signals are one highlight). Leave out signals
 that are large but uninteresting (persistent tropical warmth with no impacts, routine Southern
@@ -253,8 +260,10 @@ scan's polar signals as normal highlight candidates, on their merits:
   comma-shaped cloud.
 - **Warm, moist intrusions** (`polar_warmth` with `flag`): warm air reaching the central Arctic
   near freezing in winter, melt at Greenland's summit, or an atmospheric river onto the
-  Antarctic plateau. These make news and matter for sea ice and ice-sheet melt. Say plainly
-  that the thresholds are fixed values far above normal, not an anomaly from climatology.
+  Antarctic plateau. These make news and matter for sea ice and ice-sheet melt. Say how unusual
+  it is from the scan's `note`, which gives the normal range ("−1.5 °C near 85°N, where early
+  November is normally about −25 to −35 °C"). Don't give an anomaly as a number: Open Data has
+  no climatology.
   Scenes: `tcwv` + `mslp` on a polar box (the moisture plume being drawn poleward), then `t2m`.
 - **Arctic cyclones and extreme Southern Ocean lows** (`lows` with a `polar` label): deep lows
   over the Arctic can break up, pile and move sea ice, most of all in summer and autumn; the
@@ -291,6 +300,18 @@ why_interesting, talking points, confidence, scene titles, captions and evidence
 - **Places and directions** come from the frames: "passes west of the Ogasawaras", not "lifts
   towards them", if the heavy rain stays 250 km west; "south of Ketapang" only if it is south.
   The strongest cell named should be the strongest one shown.
+- **Describe what the eye goes to.** Viewers look at the brightest colours. If a caption quotes
+  3 mm/h near a warned town while 10 mm/h lights up 300 km away, either say where the heaviest
+  rain is or crop the box so the warned area is the story. `check_scenes.py` prints a NOTE.
+- **Say what is known, not what you are not saying.** No disclaimers such as "no flooding is
+  asserted", "no landfall is implied" or "should not be read as a town forecast": they read as
+  legal hedging. Give the uncertainty in plain words ("the exact track is uncertain", "local
+  totals could be higher on the hills") or leave it to `confidence`. The publisher rejects them.
+- **Plain words for non-specialists.** "The winds 30 km up around 60°N are forecast to turn
+  easterly from 9 Nov", not "the first two consecutive easterly daily means".
+- **Talking points** are two or three short questions or angles a presenter can pick up ("Why
+  does the rain stall against the coast?", "How rare is 47 °C in November?"), not a sentence
+  copied from `why_interesting`.
 - **Evidence states a fact**, with the number that matters. "NASA Ozone Watch: 9 m/s at 60°N on 1
   Nov, the lowest for the date since 1979", not "NASA provides observational context". Places
   cited in evidence should be on the map.
@@ -329,7 +350,8 @@ focus place and the strongest within 150 km with its direction, the scene's extr
 they are, the lowest centre for `mslp`/`z10hpa`/`z500`, and, for 10 hPa scenes, the zonal-mean wind
 at 60°, the cap temperature and the pole-minus-60° difference. Then:
 
-1. Fix every FLAG (a caption off its frames, or a number the frame doesn't contain).
+1. Fix every FLAG (a caption off its frames, or a number the frame doesn't contain), and look
+   again at every NOTE (a caption quoting a much weaker spot than the frame's strongest colours).
 2. Read each caption against its lines: the numbers, the places and the directions must match.
    Fix the summary and `field` evidence too where they quote the same values; name the run the
    frames come from.

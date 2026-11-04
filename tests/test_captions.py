@@ -31,6 +31,23 @@ class FrameTimes(unittest.TestCase):
         self.assertEqual([(b - a) / H for a, b in zip(times, times[1:])], [3.0] * 16)
 
 
+class RainTotals(unittest.TestCase):
+    latest = datetime(2026, 11, 4, 6, tzinfo=timezone.utc)
+
+    def test_window_comes_from_one_run_and_spans_24_hours(self):
+        for t in [self.latest - 18 * H, self.latest + 3 * H, self.latest + 51 * H, self.latest + 162 * H]:
+            run, step, prev = fields.pick_window(t, self.latest, 24)
+            self.assertEqual(run + step * H, t)
+            self.assertEqual(step - prev, 24)
+            self.assertLessEqual(run, self.latest)
+            self.assertIn(step, fields.native_steps(run.hour))
+            self.assertIn(prev, fields.native_steps(run.hour))
+
+    def test_beyond_the_short_run_uses_the_long_one(self):
+        run, step, _ = fields.pick_window(self.latest + 162 * H, self.latest, 24)
+        self.assertEqual(run.hour, 0)
+
+
 class AlignCaptions(unittest.TestCase):
     times = ["2026-11-11T06:00Z", "2026-11-11T18:00Z", "2026-11-12T06:00Z"]
 
@@ -54,6 +71,14 @@ class PublicText(unittest.TestCase):
         for text in ["Heavy rain over Cape Town", "CAPE above 3000 J/kg", "The polar cap warms 8 °C",
                      "The sweep of cold air reaches the Alps", "A gas pipeline was damaged"]:
             self.assertFalse(P.PROCESS.search(text), text)
+
+    def test_disclaimers_and_rate_versus_total(self):
+        for text in ["no new flooding is asserted", "no mainland landfall is implied", "no sea-ice change is claimed",
+                     "Offshore wind maxima should not be read as town forecasts"]:
+            self.assertTrue(P.HEDGE.search(text), text)
+        self.assertFalse(P.HEDGE.search("Forecasters claimed a record"))
+        self.assertTrue(P.MODEL_VS_WARNING.search("Regional model rain is lower than the warning's local totals"))
+        self.assertFalse(P.MODEL_VS_WARNING.search("The model gives 60 mm in 24 h near Burgas, close to the red warning"))
 
     def test_vacuous_evidence(self):
         self.assertTrue(P.VACUOUS.search("NASA Ozone Watch and NOAA CPC provide observational context"))

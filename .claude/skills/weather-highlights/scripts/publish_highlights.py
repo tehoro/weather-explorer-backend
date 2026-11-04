@@ -75,6 +75,13 @@ PROCESS = re.compile(
     r"|\b(was|were|is|are) not (fetched|obtained|retrieved|downloaded|loaded)\b"
     r"|\b(CAP|PDF|JSON|RSS|XML|API)\b|\b(duplicate|separate|another) (explainer|item|highlight)\b"
     r"|\b\w+\.(json|py|log|grib2?)\b|\bfields\.\w|\bget_frames\b")
+# Disclaimers about what the text is not saying ("no flooding is asserted") read as legal hedging:
+# say what is known and how sure it is instead.
+HEDGE = re.compile(r"\b(is|are|was|were|being) (asserted|claimed|implied)\b"
+                   r"|\bshould not be (read|inferred|taken|interpreted)\b", re.IGNORECASE)
+# "Model rain is weaker than the warning" usually compares a rate (mm/h, smoothed over 3-6 h) with a
+# warning's total over a day: compare totals (the rain24 layer) before saying so.
+MODEL_VS_WARNING = re.compile(r"\bmodel\b[^.]{0,60}\b(lower|weaker|less|below)\b[^.]{0,60}\bwarn", re.IGNORECASE)
 # An evidence line states what the source says (a fact, a number), not that it exists.
 VACUOUS = re.compile(r"\b(provides?|gives?|offers?|adds?) (\w+ ){0,2}context\b|\bfor (more |further )?context\b"
                      r"|\b(monitors?|tracks?|follows?) (the )?(situation|vortex|event|story)\b", re.IGNORECASE)
@@ -230,12 +237,29 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             if m:
                 errors.append(f"{w}.{k}: {m.group(0)!r} is about how the sweep was made, not the weather; viewers read "
                               "this. Rewrite it for them, and put method caveats in the feed's `gaps` or your report")
+            m = HEDGE.search(text)
+            if m:
+                errors.append(f"{w}.{k}: {m.group(0)!r} is a disclaimer about what the text doesn't say; state what is "
+                              "known and how certain it is in plain words instead")
+            m = MODEL_VS_WARNING.search(text)
+            if m:
+                warnings.append(f"{w}.{k}: {m.group(0)[:80]!r}: if this compares a rate (mm/h) with a warning's total, "
+                                "compare totals instead (a `rain24` scene, 24 h totals) before saying the model is weaker")
+        why = " ".join(str(it.get(k, "")) for k in ("summary", "why_interesting")).lower()
+        for j, tp in enumerate(it.get("talking_points") or []):
+            if len(str(tp)) > 20 and str(tp).strip().rstrip(".").lower() in why:
+                warnings.append(f"{w}.talking_points[{j}]: repeats the summary or why_interesting; give a question or "
+                                "point a presenter can pick up (e.g. 'Why does the rain stall over the coast?')")
         try:
             peak = fields.parse_time(it.get("when", {}).get("peak", ""))
             gen = fields.parse_time(feed.get("generated_utc", ""))
             if it.get("status") == "forecast" and peak < gen - timedelta(hours=6):
                 warnings.append(f"{w}: status is forecast but the peak ({fields.iso(peak)}) is before publication; "
                                 "is the event already fading? Say so, or choose a newer one")
+            end = fields.parse_time(it.get("when", {}).get("end", ""))
+            if end < gen + timedelta(hours=12) and it.get("kind") != "explainer":
+                warnings.append(f"{w}: the event ends at {fields.iso(end)}, within 12 h of publication, so most people "
+                                "will see it after it is over; prefer an event with more ahead of it, or a later stage")
         except Exception:
             pass
         ev = it.get("evidence", [])

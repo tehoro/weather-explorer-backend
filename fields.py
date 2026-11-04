@@ -72,6 +72,8 @@ class Layer:
     categories: list[tuple[int, str, str]] | None = None   # categorical: (value, label, #RRGGBBAA)
     app_ready: bool = True            # False: built and shown on the web, but not yet allowed in
                                       # highlights (the current iPhone app can't rebuild it itself)
+    window_h: int = 0                 # accumulated over this many hours ending at the valid time
+                                      # (rain24), instead of over the interval since the last step
 
 
 T = "#00000000"  # transparent
@@ -105,6 +107,11 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
     Layer("precip", "Precipitation rate", "mm/h", ["tp"],
           [(0.1, T), (0.3, "#a6dba088"), (1, "#41b6c4cc"), (2, "#2c7fb8dd"), (5, "#fed976ee"), (10, "#fd8d3cff"), (20, "#e31a1cff"), (50, "#ae017eff")],
           needs_interval=True, accumulated=True, description="Mean precipitation rate over the interval ending at the valid time."),
+    # November 2026, web viewer only: totals in the same form as most rain warnings.
+    Layer("rain24", "Rain in the last 24 h", "mm", ["tp"],
+          [(1, T), (5, "#a6dba088"), (10, "#41b6c4cc"), (25, "#2c7fb8dd"), (50, "#fed976ee"), (100, "#fd8d3cff"), (200, "#e31a1cff"), (400, "#ae017eff")],
+          needs_interval=True, accumulated=True, window_h=24, app_ready=False,
+          description="Precipitation total over the 24 h ending at the valid time, as most rain warnings give it."),
     Layer("tcwv", "Total column water vapour", "kg/m²", ["tcwv"],
           [(15, T), (25, "#c7e9c066"), (35, "#74c476aa"), (45, "#fed976cc"), (55, "#fd8d3cdd"), (65, "#e31a1cee"), (75, "#7a0177ff")],
           description="Moisture plumes: atmospheric rivers and tropical moisture."),
@@ -345,6 +352,28 @@ def previous_step(run: datetime, step: int) -> int:
     return steps[steps.index(step) - 1]
 
 
+def pick_window(t: datetime, latest: datetime, hours: int) -> tuple[datetime, int, int] | None:
+    """(run, step, step - hours) for a total over the `hours` ending at t, from one run: the latest
+    run once t is far enough ahead, otherwise the last run started at least `hours` before t."""
+    run = min(latest, floor6(t - hours * H))
+    step = int((t - run) / H)
+    if step > 144 and run.hour in (6, 18):
+        run, step = run - 6 * H, step + 6
+    steps = native_steps(run.hour)
+    return (run, step, step - hours) if step in steps and step - hours in steps else None
+
+
+def frame_source(layer: Layer, t: datetime, latest: datetime) -> tuple[datetime, int, int | None] | None:
+    """(run, step, previous step or None) that a layer's frame at valid time t is made from."""
+    if layer.window_h:
+        return pick_window(t, latest, layer.window_h)
+    src = pick_source(t, latest, layer.needs_interval)
+    if not src:
+        return None
+    run, step = src
+    return run, step, (previous_step(run, step) if layer.accumulated else None)
+
+
 def frame_times(start: datetime, end: datetime, latest: datetime, max_frames: int) -> list[datetime]:
     """Valid times at the native cadence (3 h, 6 h beyond +144 h), thinned to max_frames.
 
@@ -392,7 +421,7 @@ def scene_times(layer_id: str, start: str | None, end: str | None) -> list[datet
     t1 = parse_time(end) if end else t0 + 72 * H
     t0, t1 = max(t0, latest - 72 * H), min(t1, latest + 360 * H)
     times = frame_times(t0, t1, latest, scene_frame_count(start or "", end or ""))
-    return [t for t in times if pick_source(t, latest, layer.needs_interval)]
+    return [t for t in times if frame_source(layer, t, latest)]
 
 
 # --------------------------------------------------------------------------------------------
@@ -600,6 +629,8 @@ def _convert(layer: Layer, a: dict[str, np.ndarray], dt_hours: float) -> np.ndar
         return a["t"] - 273.15
     if layer.id == "precip":
         return np.maximum(a["tp"] - a["tp_prev"], 0) * 1000.0 / dt_hours
+    if layer.id == "rain24":
+        return np.maximum(a["tp"] - a["tp_prev"], 0) * 1000.0
     if layer.id == "olr":
         # ttr is accumulated (J/m2, negative = outgoing): mean outgoing flux over the interval.
         return np.maximum(-(a["ttr"] - a["ttr_prev"]) / (dt_hours * 3600.0), 0)
@@ -632,12 +663,9 @@ def get_frames(layer_id: str, bbox: str | PolarBox, start: str | None, end: str 
 
     plan: list[tuple[datetime, datetime, int, int | None]] = []
     for t in times:
-        src = pick_source(t, latest, layer.needs_interval)
-        if not src:
-            continue
-        run, step = src
-        prev = previous_step(run, step) if layer.accumulated else None
-        plan.append((t, run, step, prev))
+        src = frame_source(layer, t, latest)
+        if src:
+            plan.append((t, *src))
     futures = {}
     for i, (t, run, step, prev) in enumerate(plan):
         for p in layer.params:
