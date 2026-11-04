@@ -22,7 +22,7 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
   "title": "Windstorm crossing Ireland and the UK",
   "hazards": ["wind", "rain"],
   "status": "forecast",
-  "where": {"label": "Ireland, UK, North Sea", "centre": [55.0, -5.0], "bbox": [-25, 45, 15, 65]},
+  "where": {"country": "Ireland and the UK", "label": "Ireland, UK, North Sea", "centre": [55.0, -5.0], "bbox": [-25, 45, 15, 65]},
   "when": {"start": "2026-10-23T00:00Z", "peak": "2026-10-24T06:00Z", "end": "2026-10-25T12:00Z"},
   "summary": "Two or three plain sentences: what, where, how severe, what happens next.",
   "why_interesting": "The scientific or visual hook: why someone exploring the data would find this worth a look.",
@@ -47,6 +47,11 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
 - `hazards`: any of wind, rain, flood, snow, ice, heat, cold, tropical-cyclone, convection, drought,
   fire-weather, fog, dust, coastal, other.
 - `status`: `observed` (already happened), `ongoing`, or `forecast`.
+- `where.country` (required): the country, or two, a reader would recognise ("Bulgaria", "India",
+  "Australia", "Brazil and Paraguay"); for open sea or polar items the ocean or region ("North
+  Pacific", "Arctic", "Antarctica"). At most 30 characters. The viewer puts it before the title
+  ("Bulgaria: Burgas moves to red…") unless the title already names it. `where.label` gives the
+  finer detail ("Eastern Bulgaria and Romania's Black Sea coast").
 - `bbox` is `[west, south, east, north]` in degrees. For a box crossing the dateline, `east` may be
   greater than 180 (e.g. `[150, -10, 210, 30]`).
 - Times are ISO 8601 UTC with a `Z`.

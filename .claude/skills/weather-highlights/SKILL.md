@@ -293,6 +293,10 @@ why_interesting, talking points, confidence, scene titles, captions and evidence
   flag"), fetches that failed ("could not be fetched", "was not obtained"), source formats (CAP,
   PDF, JSON) or editorial choices ("rather than a duplicate explainer"). Put such caveats in the
   feed's `gaps` and your report. The publisher rejects them.
+- **Where in the world.** Readers don't know where Burgas, Telangana or the Top End are. Set
+  `where.country` (see the schema): the viewer shows it before the title. A title may name the
+  country itself ("Northern Australia bakes…"); a local name alone (a town, a province, "the
+  Kimberley") always needs the country.
 - **Titles and causes.** A title that names a cause must name the right one (in a cold outbreak it
   is the colder air that turns rain to snow, not the wind). `why_interesting` explains the
   physics (what forces the wind, why the air is so moist, why the storm deepens), not the map

@@ -230,6 +230,10 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
         check_bbox(where.get("bbox"), f"{w}.where", errors)
         if not (isinstance(where.get("centre"), list) and len(where["centre"]) == 2):
             errors.append(f"{w}.where: centre must be [lat, lon]")
+        country = where.get("country")
+        if not (isinstance(country, str) and 2 <= len(country.strip()) <= 30):
+            errors.append(f"{w}.where: country is required (at most 30 characters): the country or region a reader "
+                          "knows, e.g. 'Bulgaria', 'India', 'North Pacific'. The viewer shows it before the title")
         for k in ("start", "end"):
             t(it.get("when", {}).get(k, ""), f"{w}.when.{k}", errors)
         for k, text in public_texts(it):
