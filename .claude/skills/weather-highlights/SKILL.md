@@ -26,8 +26,9 @@ uv run --frozen python $S/scripts/scan_fields.py --out data/highlights/scan.json
 python3 $S/scripts/fetch_warnings.py --worldwide --hours-ahead 48 --out data/highlights/warnings.json
 ```
 
-The scan downloads a few hundred global fields and can take several minutes: run it with a
-10-minute timeout (600000 ms), or in the background, and start the news searches meanwhile.
+The scan downloads several hundred global fields and can take 10-20 minutes when the data mirrors
+are slow: run it in the background (or with a timeout of at least 40 minutes), start the news
+searches meanwhile, and wait for it to finish before choosing highlights.
 
 - `scan.json` (a few minutes; downloads are cached for the scene data):
   - `ensemble`: IFS ENS probability regions over land and coasts: chance of more than 50 mm

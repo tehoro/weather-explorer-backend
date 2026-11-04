@@ -24,7 +24,7 @@ Environment:
   OPENAI_API_KEY               the key (never uploaded to the sandbox)
   WEATHER_OPENAI_MODEL         default gpt-6.1-sol
   WEATHER_OPENAI_EFFORT        default xhigh
-  WEATHER_OPENAI_MINUTES       wall-clock limit per sweep, default 45 (a request: 30)
+  WEATHER_OPENAI_MINUTES       wall-clock limit per sweep, default 60 (a request: 30)
   WEATHER_OPENAI_RUNS_PER_DAY  sweeps a day, default 4
 """
 from __future__ import annotations
@@ -57,7 +57,7 @@ MAX_FILE, MAX_TOTAL = 20_000_000, 150_000_000
 
 MODEL = os.environ.get("WEATHER_OPENAI_MODEL", "gpt-6.1-sol")
 EFFORT = os.environ.get("WEATHER_OPENAI_EFFORT", "xhigh")
-MINUTES = float(os.environ.get("WEATHER_OPENAI_MINUTES", "45"))
+MINUTES = float(os.environ.get("WEATHER_OPENAI_MINUTES", "60"))
 RUNS_PER_DAY = int(os.environ.get("WEATHER_OPENAI_RUNS_PER_DAY", "4"))
 REQUEST_MINUTES = 30
 RUNS = BACKEND / "data" / "openai-runs"
@@ -74,7 +74,7 @@ INSTRUCTIONS = (
 
 PROMPT = (
     "Use the complete weather-highlights skill now. First read SKILL.md. Run both original acquisition "
-    "scripts with sufficient timeout (at least 1200 seconds for the scan, 600 for warnings), using fresh "
+    "scripts with sufficient timeout (at least 2400 seconds for the scan, 600 for warnings), using fresh "
     "available model runs. data/highlights/latest.json and explainer_history.json hold the feed and "
     "explainer history currently in production, so the explainer rules apply as they would there. "
     "Search current weather news using the actual current UTC date and verify important facts against "
