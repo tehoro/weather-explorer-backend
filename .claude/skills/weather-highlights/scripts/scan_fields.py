@@ -7,7 +7,9 @@ Signals (each is evidence for Claude to weigh, not a verdict):
   * ensemble - IFS ENS probability regions over land and coasts: chance of >50 mm precipitation
                and of gusts >25 m/s in daily 24 h windows, days 1-10, >= threshold.
   * low      - deep surface lows in IFS HRES (Open Data), tracked crudely across 12-hourly steps.
-               Tropical lows (|lat| < 30) are flagged as possible tropical cyclones.
+               Tropical lows (|lat| < 30) are flagged as possible tropical cyclones. Lows north of
+               75N (970 hPa or below; 985 in May-September) and Southern Ocean lows of 935 hPa or
+               below get a `polar` label.
   * rain24   - 24 h precipitation totals >= 100 mm in IFS HRES.
   * gust     - 10 m gusts >= 35 m/s in IFS HRES (3-hourly maxima, days 0-5).
   * explainers - textbook local winds at known places, for "explainer" highlights: Greenland tip
@@ -24,6 +26,10 @@ Signals (each is evidence for Claude to weigh, not a verdict):
                Each hemisphere gets a `status` for the sweep (start, continue, end or none) from
                these thresholds and whether the previous feed had a polar-vortex item, and, when
                flagged, the share of the 50 ENS members with reversed winds.
+  * polar    - polar lows (small, intense maritime lows in cold air over open sea: sea surface
+               at least 43 K warmer than 500 hPa, gale-force wind, 6-hourly to +72 h) and warm,
+               moist intrusions into the polar regions (Arctic Ocean near or above freezing in
+               the cold season, melt at Greenland's summit, a warm spell on the Antarctic plateau).
 
 Usage (from the backend directory):
   uv run python .claude/skills/weather-highlights/scripts/scan_fields.py --out data/highlights/scan.json
@@ -191,14 +197,18 @@ def local_minima(vals: np.ndarray, radius: int) -> np.ndarray:
     return vals <= m
 
 
+ARCTIC_SUMMER = {5, 6, 7, 8, 9}
+
+
 def scan_lows(run: datetime) -> list[dict]:
     steps = list(range(0, 121, 12))
     data = opendata(run, "msl", steps)
     tracks: list[dict] = []
+    arctic = 985 if run.month in ARCTIC_SUMMER else 975   # summer Arctic cyclones are weaker but matter for sea ice
     for step, (vals, grid) in sorted(data.items()):
         v, g = vals[::4, ::4] / 100.0, fields.Grid(grid.lats[::4], grid.lons[::4])   # 1 deg is enough
         lat2 = np.repeat(g.lats[:, None], len(g.lons), axis=1)
-        deep = np.where(np.abs(lat2) < 30, v < 1000, v < 975)
+        deep = np.where(np.abs(lat2) < 30, v < 1000, np.where(lat2 >= 70, v < arctic, v < 975))
         deep &= lat2 > -70          # pressure reduced to sea level over Antarctica is unreliable
         for y, x in zip(*np.nonzero(local_minima(v, 4) & deep)):
             pt = (float(g.lats[y]), float(g.lons[x]), round(float(v[y, x]), 1))
@@ -231,9 +241,14 @@ def scan_lows(run: datetime) -> list[dict]:
         # Bergeron-style deepening rate normalised to 60 deg latitude (>= 1 is a "bomb")
         f = d["max_24h_fall_hPa"]
         d["bergeron"] = round(f * np.sin(np.radians(60)) / max(np.sin(np.radians(abs(d["at"][0]))), 0.2) / 24, 2) if f else None
+        lat, p = d["at"][0], d["min_mslp_hPa"]
+        if lat >= 75 and p <= (985 if run.month in ARCTIC_SUMMER else 970):
+            d["polar"] = "Arctic cyclone (deep low over the Arctic Ocean side; can break up and move sea ice)"
+        elif lat <= -50 and p <= 935:
+            d["polar"] = "extreme Southern Ocean low (935 hPa or below: among the deepest lows on Earth)"
     out.sort(key=lambda d: (d["what"].startswith("deep"), d["min_mslp_hPa"] if not d["what"].startswith("deep")
                             else -(d["bergeron"] or 0)))
-    return out[:20]
+    return out[:20] + [d for d in out[20:] if d.get("polar")]
 
 
 def scan_rain(run: datetime, threshold: float) -> list[dict]:
@@ -459,9 +474,17 @@ def _ens_u60(run: datetime, step: int) -> list[tuple[float, float]]:
             return []
         root, rows = found
         rows = [r for r in rows if r.get("param") == "u" and str(r.get("levelist")) == "10"]
-        rng = lambda r: {"Range": f"bytes={r['_offset']}-{r['_offset'] + r['_length'] - 1}"}
-        with ThreadPoolExecutor(8) as ex:
-            parts = list(ex.map(lambda r: fields._get(f"{root}/{rel}.grib2", rng(r)), rows))
+        def part(r):                                   # each member, from the other mirror if S3 refuses
+            rng = {"Range": f"bytes={r['_offset']}-{r['_offset'] + r['_length'] - 1}"}
+            roots = [root] + [x for x in fields.ROOTS if x != root]
+            for i, r0 in enumerate(roots):
+                try:
+                    return fields._get(f"{r0}/{rel}.grib2", rng)
+                except Exception:
+                    if i == len(roots) - 1:
+                        raise
+        with ThreadPoolExecutor(4) as ex:
+            parts = list(ex.map(part, rows))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.with_suffix(".part").write_bytes(b"".join(parts))
         path.with_suffix(".part").rename(path)
@@ -525,7 +548,11 @@ def scan_stratosphere(run: datetime) -> dict:
         k = int((fields.parse_time(h["min_at"]) - run) / H)
         ens = []
         for step in sorted({min(360, max(24, k + d)) for d in (-48, 0, 48)}):
-            members = [u[0 if hemi == "north" else 1] for u in _ens_u60(run, step)]
+            try:
+                members = [u[0 if hemi == "north" else 1] for u in _ens_u60(run, step)]
+            except Exception as e:                     # keep the status; say the ensemble is missing
+                h.setdefault("ensemble_errors", []).append(f"+{step} h: {type(e).__name__}: {e}")
+                continue
             if members:
                 q = np.percentile(members, [10, 50, 90])
                 ens.append({"t": fields.iso(run + step * H), "members": len(members),
@@ -533,6 +560,142 @@ def scan_stratosphere(run: datetime) -> dict:
                             "u60_p10_p50_p90_ms": [round(float(x), 1) for x in q]})
         h["ensemble"] = ens
     return out
+
+
+# ---- Polar weather: polar lows and warm intrusions -------------------------------------------
+POLAR_LOW_BANDS = {"north": (50, 82), "south": (-75, -45)}
+POLAR_LOW_MONTHS = {"north": {10, 11, 12, 1, 2, 3, 4}, "south": {4, 5, 6, 7, 8, 9, 10}}
+POLAR_LOW_CONTRAST = 43.0     # K, sea surface minus 500 hPa temperature (a standard polar-low criterion)
+POLAR_LOW_WIND = 15.0         # m/s, 10 m wind near the centre
+
+
+def _window(a: np.ndarray, y: int, x: int, r: int) -> np.ndarray:
+    """Cells within +-r of (y, x), wrapping in longitude."""
+    rows = slice(max(0, y - r), y + r + 1)
+    cols = np.arange(x - r, x + r + 1) % a.shape[1]
+    return a[rows][:, cols]
+
+
+def scan_polar_lows(run: datetime) -> list[dict]:
+    """Small closed lows over open sea in very cold air, with gale-force wind: polar-low candidates.
+    Lows that are the lowest point for 8 degrees around are synoptic cyclones, not polar lows."""
+    month = run.month
+    hemis = [h for h in POLAR_LOW_BANDS if month in POLAR_LOW_MONTHS[h]]
+    if not hemis:
+        return []
+    steps = list(range(0, 73, 6))
+    jobs = [(p, s, None) for s in steps for p in ("msl", "skt", "10u", "10v")] + [("t", s, 500) for s in steps]
+    paths = _fetch_all(run, jobs + [("lsm", 0, None)])
+    lsm, _ = fields.read_one(paths[("lsm", 0, None)])
+    tracks: list[dict] = []
+    for step in steps:
+        try:
+            msl, grid = fields.read_one(paths[("msl", step, None)])
+            skt, _ = fields.read_one(paths[("skt", step, None)])
+            t5, _ = fields.read_one(paths[("t", step, 500)])
+            u, _ = fields.read_one(paths[("10u", step, None)])
+            v, _ = fields.read_one(paths[("10v", step, None)])
+        except Exception:
+            continue
+        msl, spd, contrast = msl / 100.0, np.hypot(u, v), skt - t5
+        for h in hemis:
+            lo, hi = POLAR_LOW_BANDS[h]
+            rows = np.nonzero((grid.lats >= lo) & (grid.lats <= hi))[0]
+            sub = msl[rows]
+            for y, x in zip(*np.nonzero(local_minima(sub, 6))):
+                Y = rows[y]
+                if lsm[Y, x] >= 0.5 or _window(msl, Y, x, 8).mean() - msl[Y, x] < 2:
+                    continue                                   # over land, or too shallow to be a closed low
+                if msl[Y, x] <= _window(msl, Y, x, 32).min():
+                    continue                                   # the lowest for 8 degrees around: a synoptic low
+                c, w = float(_window(contrast, Y, x, 4).max()), float(_window(spd, Y, x, 4).max())
+                if c < POLAR_LOW_CONTRAST or w < POLAR_LOW_WIND:
+                    continue
+                pt = {"t": fields.iso(run + step * H), "lat": float(grid.lats[Y]), "lon": float(grid.lons[x]),
+                      "mslp": round(float(msl[Y, x]), 1), "wind_ms": round(w, 1), "contrast_K": round(c, 1)}
+                for tr in tracks:
+                    last = tr["points"][-1]
+                    if tr["last_step"] == step - 6 and abs(last["lat"] - pt["lat"]) < 3 \
+                            and abs(((last["lon"] - pt["lon"] + 180) % 360) - 180) < 8:
+                        tr["points"].append(pt)
+                        tr["last_step"] = step
+                        break
+                else:
+                    tracks.append({"points": [pt], "last_step": step})
+    out = []
+    for tr in tracks:
+        pts = tr["points"]
+        if len(pts) < 2:                                       # seen at two steps at least (6 h)
+            continue
+        peak = max(pts, key=lambda p: p["wind_ms"])
+        lats = [p["lat"] for p in pts]
+        lons = np.degrees(np.unwrap(np.radians([p["lon"] for p in pts])))
+        out.append({"signal": "polar_low", "what": "possible polar low (model only)", "first": pts[0]["t"],
+                    "last": pts[-1]["t"], "peak_wind_ms": peak["wind_ms"], "time_of_peak": peak["t"],
+                    "at": [peak["lat"], peak["lon"]], "min_mslp_hPa": min(p["mslp"] for p in pts),
+                    "max_contrast_K": max(p["contrast_K"] for p in pts), "track": pts,
+                    "bbox": [round(min(lons) - 10, 1), round(max(-89, min(lats) - 5), 1),
+                             round(max(lons) + 10, 1), round(min(89, max(lats) + 5), 1)],
+                    "run": fields.iso(run)})
+    out.sort(key=lambda d: -d["peak_wind_ms"])
+    return out[:8]
+
+
+# Warm, moist intrusions: (name, months, mask rule, threshold on the 2 m temperature in C, note).
+# Fixed thresholds stand in for anomalies, as Open Data has no climatology; each is far above the
+# region's normal for the season. The Antarctic plateau is where surface pressure is below 700 hPa.
+WARM_REGIONS = [
+    ("Central Arctic Ocean", {11, 12, 1, 2, 3}, "lat>=85", -5.0,
+     "Normally about -25 to -35 C in the cold season: warm, moist air reaching the pole from the Atlantic or Pacific."),
+    ("Central Arctic Ocean", {10, 4}, "lat>=85", 0.0,
+     "Above freezing near the pole outside summer: a warm-air intrusion."),
+    ("Greenland ice sheet summit", set(range(1, 13)), "summit", 0.0,
+     "Above freezing at about 3200 m on top of the Greenland ice sheet: surface melt where it is rare."),
+    ("Antarctic plateau", {4, 5, 6, 7, 8, 9}, "plateau", -30.0,
+     "Normally about -55 to -70 C in winter: an atmospheric river or warm intrusion onto the high ice sheet."),
+    ("Antarctic plateau", {10, 11, 12, 1, 2, 3}, "plateau", -10.0,
+     "Unusually warm for the high ice sheet even in its warmer season."),
+]
+SUMMIT = [-41, 71.5, -35, 73.5]                        # Summit Station, 72.6N 38.5W
+
+
+def scan_polar_warmth(run: datetime) -> list[dict]:
+    """The warmest 2 m temperature in each polar region every 12 h to +240 h, flagged when it passes
+    the region's threshold for the month, with the most water vapour (tcwv) there at that time."""
+    regions = [r for r in WARM_REGIONS if run.month in r[1]]
+    steps = list(range(0, 241, 12))
+    paths = _fetch_all(run, [(p, s, None) for s in steps for p in ("2t", "tcwv")] + [("sp", 0, None)])
+    sp, grid = fields.read_one(paths[("sp", 0, None)])
+    lat2 = np.repeat(grid.lats[:, None], len(grid.lons), axis=1)
+    lon2 = np.repeat(grid.lons[None, :], len(grid.lats), axis=0)
+    lon2 = ((lon2 + 180) % 360) - 180
+    masks = {"lat>=85": lat2 >= 85, "plateau": (lat2 < -65) & (sp < 70000),
+             "summit": (lon2 >= SUMMIT[0]) & (lon2 <= SUMMIT[2]) & (lat2 >= SUMMIT[1]) & (lat2 <= SUMMIT[3])}
+    best = {}
+    for step in steps:
+        try:
+            t2, _ = fields.read_one(paths[("2t", step, None)])
+            q, _ = fields.read_one(paths[("tcwv", step, None)])
+        except Exception:
+            continue
+        t2 = t2 - 273.15
+        for name, _, rule, thr, note in regions:
+            m = masks[rule]
+            i = np.argmax(np.where(m, t2, -np.inf))
+            y, x = np.unravel_index(i, t2.shape)
+            val = float(t2[y, x])
+            b = best.setdefault(name, {"signal": "polar_warmth", "region": name, "threshold_C": thr, "note": note,
+                                       "max_t2m_C": -999.0, "steps_above": 0, "run": fields.iso(run)})
+            if val >= thr:
+                b["steps_above"] += 1
+                b.setdefault("first_above", fields.iso(run + step * H))
+            if val > b["max_t2m_C"]:
+                b.update(max_t2m_C=round(val, 1), time_of_max=fields.iso(run + step * H),
+                         at=[round(float(grid.lats[y]), 2), round(float(lon2[y, x]), 2)],
+                         median_t2m_C=round(float(np.median(t2[m])), 1), max_tcwv_kg_m2=round(float(q[m].max()), 1))
+    for b in best.values():
+        b["flag"] = b["steps_above"] > 0
+    return sorted(best.values(), key=lambda b: (not b["flag"], b["region"]))
 
 
 def main():
@@ -555,7 +718,9 @@ def main():
                      ("explainers", lambda: (scan_local_winds(run), {})),
                      ("convection", lambda: (scan_convection(run), {})),
                      ("freezing", lambda: (scan_freezing(run), {})),
-                     ("stratosphere", lambda: (scan_stratosphere(run), {}))]:
+                     ("stratosphere", lambda: (scan_stratosphere(run), {})),
+                     ("polar_lows", lambda: (scan_polar_lows(run), {})),
+                     ("polar_warmth", lambda: (scan_polar_warmth(run), {}))]:
         try:
             items, src = fn()
             result[name] = items
@@ -575,7 +740,8 @@ def main():
     text = json.dumps(result, indent=1)
     if a.out:
         Path(a.out).write_text(text)
-        counts = {k: len(result[k]) for k in ("ensemble", "lows", "rain24", "gusts", "explainers", "convection", "freezing")}
+        counts = {k: len(result[k]) for k in ("ensemble", "lows", "rain24", "gusts", "explainers", "convection", "freezing", "polar_lows")}
+        counts["polar_warmth_flags"] = sum(1 for b in result["polar_warmth"] if b.get("flag"))
         vortex = {h: result["stratosphere"][h]["status"] for h in ("north", "south") if h in result["stratosphere"]}
         print(f"wrote {a.out}: {counts}; polar vortex: {vortex}; errors: {errors or 'none'}")
     else:

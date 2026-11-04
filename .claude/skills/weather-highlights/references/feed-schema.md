@@ -135,6 +135,10 @@ setting → hazard → why the forecast system flags it.
 | Freezing rain / ice, snow events | `t850` fill + `mslp` contours (warm air over cold: the setting) | `ptype` fill + `mslp` contours on the area, 1-2 days | — |
 | Low-level jet (explainer) | `wind850` fill + `wind850` vectors, regional box, 2 nights so the night-time peaks show | `cape` or `precip` fill where the jet's moisture feeds storms | — |
 | Tropical cyclone, alternative opener | `olr` fill + `mslp` contours: the eye and spiral bands like a satellite loop | — | — |
+| Polar low | `t850` fill + `mslp` contours, regional box: cold air flowing off the ice over warmer sea | `wind10` fill + `mslp` contours + `wind10` vectors on the track, under 50° wide, 6-hourly over 1-2 days | `olr`: the small comma or spiral cloud |
+| Warm intrusion into the Arctic or Antarctic | `tcwv` fill + `mslp` contours, polar box (e.g. `[-180, 60, 180, 90]`): the moisture plume drawn poleward | `t2m` fill, same box: the warm air over the ice | — |
+| Arctic cyclone or extreme Southern Ocean low | `mslp` fill + contours, polar box, 3-5 days | `wind10` fill + `wind10` vectors + `mslp` contours | — (sea ice is not in Open Data: describe it in words) |
+| Katabatic wind (explainer) | `t2m` fill + `wind10` vectors, the ice sheet and coast (e.g. `[120, -80, 170, -62]` for Adélie Land): cold air draining off the plateau | `wind10` fill + `wind10` vectors on the scan's `scene_bbox`, 2-3 days, 3-hourly | — |
 | Polar vortex weakening, split or sudden stratospheric warming | `z10hpa` fill + contours, `[-180, 40, 180, 90]`, 7-10 days (6-hourly beyond +144 h is fine): the vortex stretching, moving off the pole or splitting | `t10hpa` fill + `z10hpa` contours, same box: the warming over the pole | `wind10hpa` fill + vectors: the polar night jet weakening or reversing; or `z500` / `t850` for the weather below, saying the link to the surface is weeks away and uncertain |
 
 Rules of thumb:

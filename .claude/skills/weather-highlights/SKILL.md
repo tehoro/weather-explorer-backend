@@ -50,6 +50,13 @@ The scan downloads a few hundred global fields and can take several minutes: run
     temperature at 10 hPa (`cap_t_C`), the last three days' analyses, a `flag`, and a `status`
     for this sweep (see "Polar vortex" below). When flagged, `ensemble` gives the share of the 50
     ENS members with reversed winds around the deterministic minimum.
+  - `polar_lows`: possible polar lows (model only): small, intense lows over open sea in very
+    cold air (sea surface at least 43 K warmer than the air at 500 hPa) with gale-force wind,
+    each with its track, peak wind and box. Deep lows in `lows` north of 75°N or of 935 hPa or below
+    in the Southern Ocean carry a `polar` label.
+  - `polar_warmth`: the warmest 2 m temperature in each polar region to +240 h (central Arctic
+    Ocean, Greenland's summit, the Antarctic plateau), with `flag` true when it passes a threshold
+    far above that region’s normal for the month, the median over the region at that time, and the most water vapour there.
   - `errors`: any signal that failed. Report failures in the feed's `gaps`.
 - `warnings.json` (official warnings, now to +48 h):
   - `meteoalarm_orange_red`: MeteoAlarm orange/red warnings for ECMWF Member and Co-operating
@@ -194,6 +201,41 @@ Writing it:
   cold spell.
 - Scenes: the polar vortex recipe in the feed schema (`z10hpa`, `t10hpa`, `wind10hpa` on a polar
   box), and the weather below (`z500` on the same box) once the story reaches the ground.
+
+### Polar weather
+
+The polar regions are easy to overlook: few people live there, and news coverage is thin. Use the
+scan's polar signals as normal highlight candidates, on their merits:
+
+- **Polar lows** (`polar_lows`): small, short-lived storms (200-1000 km across) that form over open
+  sea in cold-air outbreaks off the ice or snow: Norwegian and Barents Seas, Labrador Sea, Sea
+  of Japan, Southern Ocean. They bring sudden gales and heavy snow showers to coasts (northern
+  Norway, Svalbard) and shipping. Check with MET Norway warnings and news; a candidate the model
+  shows alone can still be a highlight if it is strong and near coasts or shipping lanes. Call
+  it a "possible polar low" unless a forecaster names it one. Scenes: `t850` + `mslp` on a
+  regional box (the cold air over warmer sea), then `wind10` + `mslp` + `wind10` vectors on the
+  track's box (under 50° wide, so the 0.1° data shows the small core), then `olr` for its
+  comma-shaped cloud.
+- **Warm, moist intrusions** (`polar_warmth` with `flag`): warm air reaching the central Arctic
+  near freezing in winter, melt at Greenland's summit, or an atmospheric river onto the
+  Antarctic plateau. These make news and matter for sea ice and ice-sheet melt. Say plainly
+  that the thresholds are fixed values far above normal, not an anomaly from climatology.
+  Scenes: `tcwv` + `mslp` on a polar box (the moisture plume being drawn poleward), then `t2m`.
+- **Arctic cyclones and extreme Southern Ocean lows** (`lows` with a `polar` label): deep lows
+  over the Arctic can break up, pile and move sea ice, most of all in summer and autumn; the
+  deepest Southern Ocean lows are among the lowest pressures on Earth. Sea ice is not in ECMWF
+  Open Data, so describe ice effects in words, with links to NSIDC Arctic Sea Ice News
+  (https://nsidc.org/arcticseaicenews/) or OSI SAF (https://osi-saf.eumetsat.int/), and never
+  draw or claim ice amounts from the model fields. Routine Southern Ocean lows remain out (see
+  above); one of 935 hPa or below is worth a look. Scenes: `mslp` fill + contours on a polar box,
+  then `wind10` + vectors.
+- **Katabatic winds** (explainers): the Antarctic katabatics (Adélie Land with Commonwealth Bay,
+  Terra Nova Bay) and the piteraq in East Greenland are in the scan's `explainers`. Explain that
+  air cooled over the ice sheet is dense and drains downhill, accelerating down the slopes and
+  glacier valleys; at Terra Nova Bay it pushes the sea ice away and opens a polynya. Use the
+  katabatic recipe in the feed schema.
+
+Boxes reaching past 75° are drawn on a polar grid centred on the pole, so the pole is covered.
 
 ## 4. Write the scenes
 

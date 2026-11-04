@@ -158,7 +158,7 @@ Then read the code in roughly this order:
 | [`feed-schema.md`](.claude/skills/weather-highlights/references/feed-schema.md) | The contract between the agent, the server and the viewers. |
 | [`publish_highlights.py`](.claude/skills/weather-highlights/scripts/publish_highlights.py) | Checking AI output with ordinary code before anyone sees it: schema, times, layers, and relabelling citations that aren't from an official source. |
 | [`fields.py`](fields.py) | Fetching only the needed parts of large GRIB2 files with `.index` files and HTTP Range requests; regridding; the layer catalogue (colours, units, contour intervals). |
-| [`scan_fields.py`](.claude/skills/weather-highlights/scripts/scan_fields.py) | Simple objective detection of heavy rain, strong gusts, deep lows, local winds, convection, freezing rain and polar vortex breakdowns (10 hPa winds at 60°). |
+| [`scan_fields.py`](.claude/skills/weather-highlights/scripts/scan_fields.py) | Simple objective detection of heavy rain, strong gusts, deep lows, local winds, convection, freezing rain, polar vortex breakdowns (10 hPa winds at 60°), polar lows, warm intrusions into the Arctic and Antarctic, and deep Arctic and Southern Ocean lows. |
 | [`fetch_warnings.py`](.claude/skills/weather-highlights/scripts/fetch_warnings.py) | Reading official warnings: MeteoAlarm's API, GDACS, and CAP (Common Alerting Protocol) feeds. |
 | [`server.py`](server.py) | A small FastAPI server with a scheduler, a shared lock so jobs never overlap, and catch-up after restarts. |
 | [`openai_agent.py`](openai_agent.py) | Running an agent in an isolated sandbox, then validating its output again outside the sandbox. |
