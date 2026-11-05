@@ -90,6 +90,8 @@ SOURCE_CONFIDENCE = re.compile(r"\bconfidence in (the |its |official |agency |na
 GRID_COORD = re.compile(r"\b\d{1,3}\.\d+\s?°\s?[NSEW]\b")
 # Disclaimers about what the text is not saying ("no flooding is asserted") read as legal hedging:
 # say what is known and how sure it is instead.
+# Non-standard name: it is "the polar vortex", or "the Arctic polar vortex" with the hemisphere.
+VORTEX_NAME = re.compile(r"\b(Arctic|Antarctic) vortex\b", re.I)
 HEDGE = re.compile(r"\b(is|are|was|were|being) (asserted|claimed|implied)\b"
                    r"|\bshould not be (read|inferred|taken|interpreted)\b", re.IGNORECASE)
 # "Model rain is weaker than the warning" usually compares a rate (mm/h, smoothed over 3-6 h) with a
@@ -310,6 +312,10 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             if m:
                 errors.append(f"{w}.{k}: {m.group(0)!r} is about how the sweep was made, not the weather; viewers read "
                               "this. Rewrite it for them, and put method caveats in the feed's `gaps` or your report")
+            m = VORTEX_NAME.search(text)
+            if m:
+                errors.append(f"{w}.{k}: {m.group(0)!r} is not standard; write 'the polar vortex' or "
+                              f"'the {m.group(1).capitalize()} polar vortex'")
             m = HEDGE.search(text)
             if m:
                 errors.append(f"{w}.{k}: {m.group(0)!r} is a disclaimer about what the text doesn't say; state what is "

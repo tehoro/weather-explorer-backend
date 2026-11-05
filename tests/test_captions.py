@@ -111,6 +111,12 @@ class PublicText(unittest.TestCase):
         self.assertTrue(P.near([170, 40, 190, 50], [-175, 45, -160, 55]))      # across the date line
         self.assertFalse(P.near([6, 38, 12, 44], [97, 5, 103, 12]))
 
+    def test_vortex_name(self):
+        for text in ["The Arctic vortex weakens", "the antarctic vortex splits"]:
+            self.assertTrue(P.VORTEX_NAME.search(text), text)
+        for text in ["The Arctic polar vortex weakens", "a displaced Atlantic vortex lobe", "the vortex splits"]:
+            self.assertFalse(P.VORTEX_NAME.search(text), text)
+
     def test_vacuous_evidence(self):
         self.assertTrue(P.VACUOUS.search("NASA Ozone Watch and NOAA CPC provide observational context"))
         self.assertFalse(P.VACUOUS.search("NASA Ozone Watch: 9 m/s at 60°N on 1 Nov, lowest since 1979"))

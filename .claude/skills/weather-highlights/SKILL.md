@@ -222,6 +222,9 @@ and is uncertain. Follow the scan's `stratosphere.<north|south>.status`:
   breakdown story (it can be an explainer, at most).
 
 Writing it:
+- **Name it the standard way:** "the polar vortex", or "the Arctic polar vortex" / "the Antarctic
+  polar vortex" when the hemisphere matters. Never "Arctic vortex" or "Antarctic vortex". After
+  the first mention, "the vortex" is fine.
 - **The reversal date** is `reversal_onset_day`: the first of two days in a row with an easterly
   daily mean. A single 12-hourly dip below zero (`first_easterly`) followed by westerlies again
   is "winds hover near zero", not "turns easterly". Check the dates and values against
