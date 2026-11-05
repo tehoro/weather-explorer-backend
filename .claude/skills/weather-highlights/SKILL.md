@@ -164,7 +164,12 @@ Aim for fifteen (minimum five, maximum eighteen). Prefer:
    map as if it showed the warned hazard. Make the scene window cover the warning window, and
    quote ensemble probabilities for that window and place.
 
-Collapse duplicates (a typhoon's rain, wind and low signals are one highlight). Leave out signals
+Collapse duplicates (a typhoon's rain, wind and low signals are one highlight), and neighbours
+with one cause (rain on the Pacific slopes of two neighbouring countries in the same flow is one
+highlight across both). Where several items are the same kind of event, show what differs
+about each in the scenes: how the moisture arrives (`wind850`), the storms (`olr`), the rain
+moving (`precip`) or its totals (`rain24`). The publisher warns when four items have the same
+scenes, or neighbouring items share a hazard. Leave out signals
 that are large but uninteresting (persistent tropical warmth with no impacts, routine Southern
 Ocean lows) unless there is a story to tell. Look across both hemispheres and the tropics: a
 southern-hemisphere storm or a burst of monsoon or ITCZ convection is as worth showing as a
@@ -205,7 +210,10 @@ and is uncertain. Follow the scan's `stratosphere.<north|south>.status`:
 - `continue`: the previous feed has this item and the vortex has not recovered. Keep it, with
   the **same id**, rewritten for the latest runs: say what changed since the last sweep (read the
   item in `data/highlights/latest.json`): reversal date earlier or later, ensemble agreement up or
-  down, a split appearing. Rank it on its merits, but don't drop it: it stays until `end`.
+  down, a split appearing. Rank it on its merits, but don't drop it: it stays until `end`. Most
+  readers didn't see the last version: the title and summary tell the story itself, and a change
+  is a detail named by its run ("48 of 50 members in the 00 UTC 4 Nov run"), never "the previous
+  feed".
 - `end`: the winds are back above the threshold in the recent analyses and the whole forecast.
   Leave the item out and mention it in your report.
 - `none`: no item, unless agencies or news report a major warming the thresholds miss (then
@@ -294,8 +302,9 @@ why_interesting, talking points, confidence, scene titles, captions and evidence
   PDF, JSON) or editorial choices ("rather than a duplicate explainer"). Put such caveats in the
   feed's `gaps` and your report. The publisher rejects them.
 - **Where in the world.** Readers don't know where Burgas, Telangana or the Top End are. Set
-  `where.country` (see the schema): the viewer shows it before the title. A title may name the
-  country itself ("Northern Australia bakes…"); a local name alone (a town, a province, "the
+  `where.country` (see the schema), spelt as the title would spell it. The viewer picks it out in
+  colour: in the title where the title names it ("…along Ecuador's coastal foothills"), or before
+  the title otherwise ("Australia: Extreme heat…"). A local name alone (a town, a province, "the
   Kimberley") always needs the country.
 - **Titles and causes.** A title that names a cause must name the right one (in a cold outbreak it
   is the colder air that turns rain to snow, not the wind). `why_interesting` explains the
@@ -303,7 +312,10 @@ why_interesting, talking points, confidence, scene titles, captions and evidence
   or its projection.
 - **Places and directions** come from the frames: "passes west of the Ogasawaras", not "lifts
   towards them", if the heavy rain stays 250 km west; "south of Ketapang" only if it is south.
-  The strongest cell named should be the strongest one shown.
+  The strongest cell named should be the strongest one shown. Name places a reader can find: a
+  town, coast, sea, island or region ("off the Eights Coast", "over the Kasai"), with round
+  distances ("about 100 km east of Esmeraldas"), never grid points ("near 85.75°N, 55.25°E").
+  Whole degrees only where nothing has a name.
 - **Describe what the eye goes to.** Viewers look at the brightest colours. If a caption quotes
   3 mm/h near a warned town while 10 mm/h lights up 300 km away, either say where the heaviest
   rain is or crop the box so the warned area is the story. `check_scenes.py` prints a NOTE.
@@ -313,9 +325,15 @@ why_interesting, talking points, confidence, scene titles, captions and evidence
   totals could be higher on the hills") or leave it to `confidence`. The publisher rejects them.
 - **Plain words for non-specialists.** "The winds 30 km up around 60°N are forecast to turn
   easterly from 9 Nov", not "the first two consecutive easterly daily means".
-- **Talking points** are two or three short questions or angles a presenter can pick up ("Why
-  does the rain stall against the coast?", "How rare is 47 °C in November?"), not a sentence
-  copied from `why_interesting`.
+- **Talking points** are two or three angles a presenter can pick up, each with its answer in a
+  sentence: "Why does the rain stall against the coast? The mountains force the moist air up in
+  the same place hour after hour." A question alone leaves the presenter to find the answer. Not a
+  sentence copied from `why_interesting`.
+- **Confidence is about the weather**: how sure the forecast is, and of what ("High that the
+  heaviest rain falls on the eastern slopes; moderate in local totals"). "High confidence in the
+  warning" only says the warning exists.
+- **Written for a first-time reader.** Each item stands alone: no "the previous feed", "the last
+  sweep" or "still" without saying what was there before.
 - **Evidence states a fact**, with the number that matters. "NASA Ozone Watch: 9 m/s at 60°N on 1
   Nov, the lowest for the date since 1979", not "NASA provides observational context". Places
   cited in evidence should be on the map.
@@ -326,19 +344,33 @@ Read [the feed schema](references/feed-schema.md) — it defines every field and
 scene recipes by situation. For each highlight write 1-4 scenes that tell a story:
 **setting → hazard → why the forecast system flags it**. Set boxes and windows so the development
 is visible, add `focus` points for places named in the summary, and write short captions tied to
-times. Add `hints_3d` with a cross-section line and camera idea for the Vision Pro.
+times. A box holds the whole feature through the window (`check_scenes.py` gives a NOTE when the
+strongest rain or wind touches its edge) and enough around it to make sense: where the air comes
+from, and a coast or place people know. A box of a few hundred kilometres of open ocean or ice
+shows a colour and nothing else. Add `hints_3d` with a cross-section line and camera idea for the Vision Pro.
 
 Captions:
 - **On a frame.** Frames are 3-hourly to +144 h, then 6-hourly; long windows are thinned to an
   even 6, 12 or 24 h on 00/12 UTC. A caption shows from its time until the next caption, so one
   between frames first appears on a later frame, and one after the last frame never appears. The
   publisher lists each scene's frame times when a caption misses them.
+- **No time stamps.** The viewer shows each caption beside its clock, in the viewer's own time
+  zone, so "At 21 UTC 4 Nov:" or "By 9 Nov," repeats it. Start with what happens. The publisher
+  rejects captions that start with a time.
 - **Tied to their moment.** A caption stays on screen until the next one, often for days, so word
-  it as an event at that time ("By 9 Nov the vortex sits south of Iceland"), not as a lasting
+  it as an event at that time ("The vortex has moved south of Iceland"), not as a lasting
   state ("the cap temperature is −58 °C") that goes stale. When a state stops being true before the
   next caption, give the caption an `until`. The last caption stays to the end of the scene: check
   it is still true on the last frame, or end with a caption at the last frame.
 - **Numbers from the frame shown**, in the run the frame comes from.
+- **What to watch.** Each caption points at what changes or stands out on the map: the band
+  moving, the core tightening, the contrast between two places. The same value at the same town
+  three times ("Quibdó has 63, 65, 64 kg/m²") shows nothing, and a unit a non-specialist doesn't
+  know needs a word of meaning (total column water vapour in kg/m² is the depth of water, in mm,
+  if all of it fell as rain).
+- **A 24 h total looks back.** A `rain24` frame shows the rain of the 24 h before it, so the first
+  frames show the day before the event. Start the scene about a day after the rain begins, or say
+  "fell in the past day" on those frames.
 
 ### Check the scenes against their frames
 

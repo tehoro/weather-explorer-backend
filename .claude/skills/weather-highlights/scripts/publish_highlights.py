@@ -74,7 +74,20 @@ PROCESS = re.compile(
     r"|\b(could|can) ?not be (fetched|retrieved|downloaded|read|checked|obtained|accessed|loaded)\b"
     r"|\b(was|were|is|are) not (fetched|obtained|retrieved|downloaded|loaded)\b"
     r"|\b(CAP|PDF|JSON|RSS|XML|API)\b|\b(duplicate|separate|another) (explainer|item|highlight)\b"
-    r"|\b\w+\.(json|py|log|grib2?)\b|\bfields\.\w|\bget_frames\b")
+    r"|\b\w+\.(json|py|log|grib2?)\b|\bfields\.\w|\bget_frames\b"
+    r"|\b([Pp]revious|[Ll]ast|[Ee]arlier|[Ll]atest|[Tt]his|[Tt]oday's|[Yy]esterday's) (feed|sweep|highlights? list)\b(?! of)"
+    r"|\boriginal (warning|bulletin|advisory|statement|text)\b")
+# A caption sits beside the viewer's clock, which shows its time in the viewer's own zone: a time
+# stamp at the start ("At 21 UTC 4 Nov:", "By 9 Nov,") repeats it. Say what happens instead.
+CAPTION_TIME = re.compile(r"^\s*(at|by|from|on|until|around|early|late|on the)?\s*"
+                          r"(\d{1,2}(:\d\d)?\s?UTC\b|\d{1,2}\s(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b"
+                          r"|(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\b)", re.IGNORECASE)
+# Confidence is about the weather. "High confidence in the warning" says only that the warning exists.
+SOURCE_CONFIDENCE = re.compile(r"\bconfidence in (the |its |official |agency |national )*"
+                               r"(alerts?|warnings?|outlooks?|advisor(y|ies)|bulletins?|watch(es)?)\b", re.IGNORECASE)
+# Coordinates to the grid cell ("85.75°N, 55.25°E") are false precision for a presenter: round them,
+# or better, name the sea, coast or region. (Evidence may quote an agency's position as given.)
+GRID_COORD = re.compile(r"\b\d{1,3}\.\d+\s?°\s?[NSEW]\b")
 # Disclaimers about what the text is not saying ("no flooding is asserted") read as legal hedging:
 # say what is known and how sure it is instead.
 HEDGE = re.compile(r"\b(is|are|was|were|being) (asserted|claimed|implied)\b"
@@ -172,6 +185,62 @@ def check_captions(sc: dict, sw: str, warnings: list) -> None:
                         f"the end ({fields.iso(times[-1])}); make sure it is still true then, or add a caption or an `until`")
 
 
+# Amounts, where "the same again" says nothing new. Temperatures and pressures are left out: a heat
+# wave holding at 45 °C is the story.
+AMOUNT_UNITS = {"mm", "mm/h", "m/s", "kg/m²", "J/kg", "%"}
+
+
+def check_caption_values(sc: dict, sw: str, warnings: list) -> None:
+    """Captions that quote nearly the same value at every step ("Quibdó has 63, then 65, then 64
+    kg/m²") tell no story: the viewer sees nothing change. Say what moves, grows or contrasts."""
+    unit = fields.LAYERS[sc["fill"]].units if sc.get("fill") in fields.LAYERS else ""
+    if unit not in AMOUNT_UNITS or fields.LAYERS[sc["fill"]].categories:
+        return
+    u = re.escape(unit).replace("°", "°?\\s?")
+    said = []
+    for c in sc.get("captions") or []:
+        m = re.search(rf"([−\-]?\d+(?:\.\d+)?)\s*{u}(?![\w/])", str(c.get("text", "")))
+        if m:
+            said.append(abs(float(m.group(1).replace("−", "-"))))
+    if len(said) >= 3 and max(said) > 0 and (max(said) - min(said)) <= 0.1 * max(said):
+        warnings.append(f"{sw}: the captions quote nearly the same value each time ({', '.join(f'{x:g}' for x in said)} "
+                        f"{unit}), so nothing changes for the viewer; say what moves, grows or contrasts instead")
+
+
+def check_variety(items: list, warnings: list) -> None:
+    """A feed where many items have the same scenes, or neighbouring items share a hazard, reads as one
+    story told several times. Warnings: sometimes the weather really is like that."""
+    recipes: dict[tuple, list[str]] = {}
+    for it in items:
+        if it.get("kind") != "explainer":
+            recipes.setdefault(tuple(sc.get("fill") for sc in it.get("scenes") or []), []).append(it.get("id", "?"))
+    for fills, ids in recipes.items():
+        if len(ids) >= 4:
+            warnings.append(f"{len(ids)} items have the same scenes ({' + '.join(map(str, fills))}): {', '.join(ids)}. "
+                            "Show what is different about each (how the moisture arrives, the storms, the wind, the "
+                            "rain moving: see the scene recipes), or merge neighbours with one cause")
+    for i, a in enumerate(items):
+        for b in items[i + 1:]:
+            if "explainer" in (a.get("kind"), b.get("kind")):
+                continue
+            shared = (set(a.get("hazards") or []) & set(b.get("hazards") or [])) - {"other"}
+            ba, bb = a.get("where", {}).get("bbox"), b.get("where", {}).get("bbox")
+            if shared and isinstance(ba, list) and isinstance(bb, list) and len(ba) == len(bb) == 4 and near(ba, bb):
+                warnings.append(f"{a.get('id')} and {b.get('id')} are next to each other and share {sorted(shared)}: if one "
+                                "weather system causes both, make them one highlight; if not, say in each what differs")
+
+
+def near(a: list, b: list, gap: float = 1.0) -> bool:
+    """Boxes [w, s, e, n] that overlap or come within `gap` degrees of each other, across the date line too."""
+    if b[3] + gap < a[1] or a[3] + gap < b[1]:
+        return False
+    def span(x):
+        w = x[0] % 360
+        return w, w + ((x[2] - x[0]) % 360 or 360)
+    (aw, ae), (bw, be) = span(a), span(b)
+    return any(bw + k <= ae + gap and aw <= be + k + gap for k in (-360, 0, 360))
+
+
 def check_explainers(items: list, errors: list) -> None:
     """Each explainer shows something new: not a topic from the last sweeps, not a place a highlight covers."""
     shown = explainers.recent()
@@ -245,6 +314,14 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             if m:
                 errors.append(f"{w}.{k}: {m.group(0)!r} is a disclaimer about what the text doesn't say; state what is "
                               "known and how certain it is in plain words instead")
+            if k == "confidence" and SOURCE_CONFIDENCE.search(text):
+                warnings.append(f"{w}.confidence: {SOURCE_CONFIDENCE.search(text).group(0)!r} says the warning exists, "
+                                "not how sure the weather is; say how confident the forecast is (e.g. 'High that the "
+                                "heaviest rain falls on the eastern slopes; moderate in local totals')")
+            m = None if k.startswith("evidence") else GRID_COORD.search(text)
+            if m:
+                warnings.append(f"{w}.{k}: {m.group(0)!r} is a grid point, not a place; name the sea, coast or region, "
+                                "or round to whole degrees")
             m = MODEL_VS_WARNING.search(text)
             if m:
                 warnings.append(f"{w}.{k}: {m.group(0)[:80]!r}: if this compares a rate (mm/h) with a warning's total, "
@@ -321,6 +398,11 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
                 if not str(sc.get("fill", "")).startswith("ens_") and (s0 < lo or s1 > hi):
                     warnings.append(f"{sw}: window partly outside Open Data range {fields.iso(lo)}..{fields.iso(hi)}; frames will be clipped")
             for c in sc.get("captions", []):
+                m = CAPTION_TIME.search(str(c.get("text", "")))
+                if m:
+                    errors.append(f"{sw}: caption {str(c.get('text', ''))[:50]!r} starts with a time; the viewer's clock "
+                                  "beside it already shows the time, in the viewer's own zone. Say what happens "
+                                  "('Winds reach 38 m/s west of Chichijima')")
                 ca = t(c.get("at", ""), f"{sw}.captions", errors)
                 if c.get("until"):
                     cu = t(c["until"], f"{sw}.captions.until", errors)
@@ -341,6 +423,8 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
                     if not inside:
                         warnings.append(f"{sw}: focus {f.get('label')!r} lies outside the scene box, so it isn't on the map")
             check_captions(sc, sw, warnings)
+            check_caption_values(sc, sw, warnings)
+    check_variety(items, warnings)
     if sweep:
         check_explainers(items, errors)
     return errors, warnings

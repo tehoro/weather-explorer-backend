@@ -80,6 +80,37 @@ class PublicText(unittest.TestCase):
         self.assertTrue(P.MODEL_VS_WARNING.search("Regional model rain is lower than the warning's local totals"))
         self.assertFalse(P.MODEL_VS_WARNING.search("The model gives 60 mm in 24 h near Burgas, close to the red warning"))
 
+    def test_caption_time_stamps(self):
+        for text in ["At 21 UTC 4 Nov: winds reach 38 m/s", "By 12 UTC 5 Nov: 69 kg/m²", "By 9 Nov, the jet weakens",
+                     "Early 6 Nov: rain spreads east", "On Thursday the low deepens"]:
+            self.assertTrue(P.CAPTION_TIME.search(text), text)
+        for text in ["Winds reach 38 m/s west of Chichijima", "The 24 h total since 12 UTC reaches 90 mm",
+                     "60°N winds turn easterly", "850 hPa air reaches 28 °C"]:
+            self.assertFalse(P.CAPTION_TIME.search(text), text)
+
+    def test_feed_language_confidence_and_grid_points(self):
+        for text in ["up from 48 in the previous feed", "High confidence in the original warning", "since the last sweep"]:
+            self.assertTrue(P.PROCESS.search(text), text)
+        self.assertFalse(P.PROCESS.search("The last feed of moist air reaches the coast before the front"))
+        self.assertTrue(P.SOURCE_CONFIDENCE.search("High confidence in the agency warning; moderate in totals"))
+        self.assertFalse(P.SOURCE_CONFIDENCE.search("High confidence in the track; moderate in peak gusts"))
+        self.assertTrue(P.GRID_COORD.search("−2.1 °C near 85.75°N, 55.25°E"))
+        self.assertFalse(P.GRID_COORD.search("a 930 hPa low near 69°S, 90°W"))
+
+    def test_flat_captions_and_variety(self):
+        sc = {"fill": "tcwv", "captions": [{"at": "a", "text": "Quibdó has 63 kg/m²"}, {"at": "b", "text": "65 kg/m² at Quibdó"},
+                                           {"at": "c", "text": "Quibdó still has 64 kg/m²"}]}
+        w = []
+        P.check_caption_values(sc, "s", w)
+        self.assertEqual(len(w), 1)
+        heat = {"fill": "t2m", "captions": [{"at": "a", "text": "45 °C"}, {"at": "b", "text": "44 °C"}, {"at": "c", "text": "45 °C"}]}
+        w = []
+        P.check_caption_values(heat, "s", w)
+        self.assertEqual(w, [])
+        self.assertTrue(P.near([-82, -5, -77, 2], [-79, 2, -75, 8]))
+        self.assertTrue(P.near([170, 40, 190, 50], [-175, 45, -160, 55]))      # across the date line
+        self.assertFalse(P.near([6, 38, 12, 44], [97, 5, 103, 12]))
+
     def test_vacuous_evidence(self):
         self.assertTrue(P.VACUOUS.search("NASA Ozone Watch and NOAA CPC provide observational context"))
         self.assertFalse(P.VACUOUS.search("NASA Ozone Watch: 9 m/s at 60°N on 1 Nov, lowest since 1979"))

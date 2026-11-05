@@ -33,8 +33,9 @@ then publish it with `scripts/publish_highlights.py`, which validates every fiel
     {"kind": "news", "text": "Headline — Publisher, 22 Oct 2026", "url": "https://..."}
   ],
   "scenes": [ SCENE, ... ],
-  "talking_points": ["What makes a low 'explosive'?", "Why is the ensemble so confident?"],
-  "confidence": "Short phrase, e.g. 'high: warnings issued, ENS and HRES agree'",
+  "talking_points": ["What makes a low 'explosive'? Its pressure falls 24 hPa or more in a day.",
+                     "Why is the ensemble so sure? Nearly all 50 members deepen the low in the same place."],
+  "confidence": "Short phrase about the weather, e.g. 'High in the track; moderate in peak gusts'",
   "rank": 1
 }
 ```
@@ -129,7 +130,7 @@ setting → hazard → why the forecast system flags it.
   `at` must be a frame time (see the skill: 3-hourly to +144 h, then 6-hourly, thinned to an even
   6, 12 or 24 h on 00/12 UTC for long windows); `check_scenes.py` lists them. The scene builder moves a
   caption that misses to the nearest frame. Write each as an event at that moment, with numbers
-  from the frame shown.
+  from the frame shown, and without a time: the viewer's clock beside it shows that.
 - `parallels` (optional): up to 3 latitudes drawn as labelled circles, e.g. `[60]` for the 60°N
   circle round which the polar vortex wind is averaged.
 - `hints_3d`: free-form guidance for 3D clients (Vision Pro). The 2D app ignores it.
@@ -164,3 +165,4 @@ Rules of thumb:
 - Start the window shortly before the interesting development, so the viewer sees it happen.
 - Precipitation and gusts are interval fields: they need a step after the run start.
 - Captions are the narration: one idea each, under ~70 characters, tied to what is visible.
+  No leading time stamp ("At 21 UTC 4 Nov:"): the publisher rejects it.

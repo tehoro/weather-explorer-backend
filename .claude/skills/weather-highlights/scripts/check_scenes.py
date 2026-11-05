@@ -18,7 +18,11 @@ spacing), and for every caption:
   - for the 10 hPa layers, the zonal-mean wind at 60 deg, the polar-cap mean temperature and the
     pole-minus-60 deg temperature difference of that frame's run and step;
   - each number in the caption with the fill's unit that the frame doesn't contain (FLAG);
-  - a caption whose numbers describe a much weaker spot than the frame's strongest colours (NOTE).
+  - a caption whose numbers describe a much weaker spot than the frame's strongest colours (NOTE);
+  - a scene whose strongest rain, wind or CAPE touches the box edge, so the feature runs out of
+    the picture (NOTE).
+
+Distances are rounded as a viewer would say them ("about 120 km").
 
 For a categorical fill (`ptype`) values are printed as their names (e.g. "Snow, moderate").
 
@@ -88,13 +92,36 @@ def values(pkg: dict, frame: dict) -> np.ndarray:
     return v.reshape(pkg["ny"], pkg["nx"])
 
 
+def about(d: float) -> str:
+    """A distance as a viewer would say it: "about 120 km", not the grid cell's 123 km."""
+    step = 10 if d < 200 else 50 if d < 1000 else 100
+    return f"about {round(d / step) * step:.0f} km"
+
+
 def where(lat, lon, focus) -> str:
     if not focus:
         return f"{lat:.1f},{lon:.1f}"
     f = min(focus, key=lambda f: km(lat, lon, f["lat"], f["lon"]))
     d = float(km(f["lat"], f["lon"], lat, lon))
-    rel = "at" if d < 25 else f"{d:.0f} km {bearing(f['lat'], f['lon'], lat, lon)} of"
+    rel = "at" if d < 25 else f"{about(d)} {bearing(f['lat'], f['lon'], lat, lon)} of"
     return f"{lat:.1f},{lon:.1f} ({rel} {f['label']})"
+
+
+def edge_side(j: int, pkg: dict) -> str | None:
+    """The box edge (west, east, north, south) a flat grid index lies on, if any. Polar grids have no
+    straight edges to cross, so they are skipped."""
+    if pkg.get("projection") == "polar":
+        return None
+    r, c = divmod(j, pkg["nx"])
+    if c < EDGE_CELLS:
+        return "west"
+    if c >= pkg["nx"] - EDGE_CELLS:
+        return "east"
+    if r < EDGE_CELLS:
+        return "north"
+    if r >= pkg["ny"] - EDGE_CELLS:
+        return "south"
+    return None
 
 
 def fmt(v: float) -> str:
@@ -104,6 +131,10 @@ def fmt(v: float) -> str:
 # Layers where "more" is what the eye goes to (bright colours), so a caption quoting a much weaker
 # value than the frame's peak is describing something the viewer won't pick out.
 PEAK_UNITS = {"mm/h", "mm", "m/s", "%", "J/kg", "kg/m²"}
+# Of those, layers whose strongest values are a local feature (a rain band, a wind maximum, a storm)
+# rather than a broad air mass: a maximum on the box edge means the feature runs out of the scene.
+EDGE_UNITS = {"mm/h", "mm", "m/s", "J/kg"}
+EDGE_CELLS = 2
 
 
 def show(v: float, unit: str, cats: dict[int, str]) -> str:
@@ -171,6 +202,7 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) 
     elif fill in CENTRES:
         cont = pkg
     focus = sc.get("focus") or []
+    edges: set[str] = set()
     caps = sorted(sc.get("captions") or [], key=lambda c: c.get("at", ""))
     for ci, c in enumerate(caps):
         t = fields.parse_time(c["at"])
@@ -207,7 +239,7 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) 
             if near.any():
                 j = int(np.nanargmax(np.where(near, v, -np.inf)))
                 dist = float(d.flat[j])
-                rel = "" if dist < 25 else f" {dist:.0f} km {bearing(fo['lat'], fo['lon'], lats.flat[j], lons.flat[j])}"
+                rel = "" if dist < 25 else f" {about(dist)} {bearing(fo['lat'], fo['lon'], lats.flat[j], lons.flat[j])}"
                 if cats:
                     print(f"      {fo['label']}: {show(here, unit, cats)}")
                 else:
@@ -234,6 +266,15 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) 
                    f"but the caption quotes {fmt(max(said))} {unit}")
             print(f"      NOTE: {msg}: describe what the eye goes to, or crop the box")
             notes.append(f"{name}: caption {c['at']}: {msg}")
+        if unit in EDGE_UNITS and not cats:
+            side = edge_side(int(jmax), pkg)
+            if side:
+                edges.add(side)
+    if edges:
+        msg = (f"the strongest {pkg.get('units', '')} values touch the box's {' and '.join(sorted(edges))} edge, so the "
+               "feature runs out of the scene: widen the box that way, or say the heaviest part lies beyond it")
+        print(f"    NOTE: {msg}")
+        notes.append(f"{name}: {msg}")
     last = caps[-1] if caps else None
     if last and not last.get("until") and last["at"] < times[-1]:
         print(f"    last caption stays on screen to {times[-1]}: is it still true then?")
@@ -262,7 +303,8 @@ def main():
             except Exception as e:          # one scene failing doesn't stop the others
                 print(f"    could not check: {type(e).__name__}: {e}")
     if notes:
-        print("\nNOTES (the text points at a weaker spot than the animation shows; look again):\n  - " + "\n  - ".join(notes))
+        print("\nNOTES (the text points at a weaker spot than the animation shows, or the feature runs out of the box; "
+              "look again):\n  - " + "\n  - ".join(notes))
     print("\n" + ("FLAGS (fix these, then run again):\n  - " + "\n  - ".join(flags) if flags else "No flags."))
 
 
