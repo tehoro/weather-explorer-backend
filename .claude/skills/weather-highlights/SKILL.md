@@ -175,6 +175,18 @@ Ocean lows) unless there is a story to tell. Look across both hemispheres and th
 southern-hemisphere storm or a burst of monsoon or ITCZ convection is as worth showing as a
 northern one. Freezing rain over populated land is a hazard in its own right.
 
+### New Zealand (always one)
+
+Every feed has at least one item about New Zealand (`where.country` "New Zealand"): the owner is
+based there. Often a warning or a storm gives one anyway. If not, pick the most interesting
+weather New Zealand has in the coming days and tell it as well as any other item: a front and
+its rain on the West Coast and the Southern Alps, a Canterbury nor'wester, a southerly change and
+snow to low levels, a subtropical low, heat, frost or a wind or swell event. A quiet spell can be
+the story too: a blocking high and why it brings settled or foggy weather, or an explainer
+(counted as one of the three). Rank it on its merits, and use MetService
+(https://www.metservice.com) warnings, watches and outlooks as sources where they exist. The
+publisher rejects a feed with no New Zealand item.
+
 ### Explainers (optional, 0-3)
 
 Besides the newsworthy items, add up to three **explainers** (`"kind": "explainer"`): lesser-known

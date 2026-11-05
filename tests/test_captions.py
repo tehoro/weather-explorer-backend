@@ -117,6 +117,11 @@ class PublicText(unittest.TestCase):
         for text in ["The Arctic polar vortex weakens", "a displaced Atlantic vortex lobe", "the vortex splits"]:
             self.assertFalse(P.VORTEX_NAME.search(text), text)
 
+    def test_new_zealand_item(self):
+        self.assertTrue(P.about_nz({"where": {"country": "New Zealand"}, "title": "Rain on the Southern Alps"}))
+        self.assertTrue(P.about_nz({"where": {"country": "Tasman Sea"}, "title": "Low heads for New Zealand"}))
+        self.assertFalse(P.about_nz({"where": {"country": "Australia"}, "title": "Heat in Perth"}))
+
     def test_vacuous_evidence(self):
         self.assertTrue(P.VACUOUS.search("NASA Ozone Watch and NOAA CPC provide observational context"))
         self.assertFalse(P.VACUOUS.search("NASA Ozone Watch: 9 m/s at 60°N on 1 Nov, lowest since 1979"))

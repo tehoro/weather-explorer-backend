@@ -209,6 +209,11 @@ def check_caption_values(sc: dict, sw: str, warnings: list) -> None:
                         f"{unit}), so nothing changes for the viewer; say what moves, grows or contrasts instead")
 
 
+def about_nz(it: dict) -> bool:
+    """The owner wants New Zealand in every feed."""
+    return "new zealand" in f"{(it.get('where') or {}).get('country', '')} {it.get('title', '')}".lower()
+
+
 def check_variety(items: list, warnings: list) -> None:
     """A feed where many items have the same scenes, or neighbouring items share a hazard, reads as one
     story told several times. Warnings: sometimes the weather really is like that."""
@@ -431,6 +436,9 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             check_captions(sc, sw, warnings)
             check_caption_values(sc, sw, warnings)
     check_variety(items, warnings)
+    if sweep and not any(about_nz(it) for it in items):
+        errors.append("no New Zealand item: every feed has at least one (`where.country` 'New Zealand'). If nothing "
+                      "severe, take its most interesting weather in the coming days (see 'New Zealand' in the skill)")
     if sweep:
         check_explainers(items, errors)
     return errors, warnings
