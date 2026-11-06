@@ -109,6 +109,9 @@ setting → hazard → why the forecast system flags it.
   - `rain24`: rain in the 24 h ending at each frame (mm), the form most rain warnings use; use it
     to show and check a rain warning (web viewer only). `precip` is a rate (mm/h), averaged over
     the 3 or 6 h before each frame.
+  - `raintotal`: rain since the scene began (mm), building up frame by frame: the event total for
+    rain over several days (web viewer only). Recent hours come from short-range steps of
+    earlier runs (Open Data keeps about 3 days), later ones from the forecast.
   - `ptype`: precipitation type (rain, snow, freezing rain, wet snow, rain-and-snow, ice pellets,
     freezing drizzle; light/moderate/heavy by rate). Instantaneous, so start the window at a run time.
   - `wind850`: wind at 850 hPa (~1.5 km): low-level jets, warm conveyor belts, monsoon flow.
@@ -142,8 +145,8 @@ setting → hazard → why the forecast system flags it.
 | Situation | Scene 1 (setting) | Scene 2 (hazard) | Scene 3 (signal) |
 |---|---|---|---|
 | Extratropical windstorm | `z500` fill + `mslp` contours, ocean-basin box, 3-4 days | `gust` or `wind10` fill + `mslp` contours + `wind10` vectors, 20-30° box, 3-hourly | `ens_gust25` |
-| Tropical cyclone | `tcwv` fill + `mslp` contours, basin-scale box (track context) | `wind10` fill + `mslp` + vectors, 12-15° box on the core | `precip` fill on landfall area |
-| Atmospheric river / heavy rain | `tcwv` fill + `mslp` contours, long thin plume in a wide box | `rain24` fill on the warned area (totals, as the warning gives them), or `precip` for how the rain moves | `ens_rain50` |
+| Tropical cyclone | `tcwv` fill + `mslp` contours, basin-scale box (track context) | `wind10` fill + `mslp` + vectors, 12-15° box on the core | `precip` fill on landfall area, or `raintotal` when rain and floods are the story |
+| Atmospheric river / heavy rain | `tcwv` fill + `mslp` contours, long thin plume in a wide box | `rain24` fill on the warned area (totals, as the warning gives them), or `precip` for how the rain moves | `raintotal` over the whole event (2-5 days), or `ens_rain50` |
 | Heatwave / cold spell | `z500` fill + contours (ridge/trough), continental box | `t2m` fill, 5-7 days so the diurnal cycle pulses | — |
 | Jet-stream story | `jet250` fill + `jet250` vectors, hemispheric box | `mslp` fill + contours under the jet exit | — |
 | Tip jet, fall or gap wind (explainer) | `mslp` fill + contours, synoptic box showing the pressure pattern that drives it | `wind10` fill + `wind10` vectors + `mslp` contours on the scan's `scene_bbox`, 1-3 days, 3-hourly | `gust` fill, same box |

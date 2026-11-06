@@ -14,6 +14,11 @@ comparison of what ERA5 shows with what was measured.
 No warnings, forecasts or probabilities are needed. Accuracy and honest sourcing come first: a
 shorter account where every figure is checked beats a longer one with doubtful numbers.
 
+**The weather comes first.** This is a weather explorer: most of the text explains the
+meteorology (how the system formed and developed, why it was so wet or windy there, what was
+remarkable, what ERA5 shows of it). The impacts are summarised briefly and respectfully, in a few
+lines (deaths, the scale of damage, losses), not catalogued.
+
 Work from the backend directory (the one holding `era5.py`). `$S` below is
 `.claude/skills/historical-events`. Run Python with `uv run --frozen python`.
 
@@ -83,15 +88,16 @@ Rules for figures:
 - **Times in text** that should change with the reader's time zone are written as "03 UTC 29 Aug"
   or "06-12 UTC 29 Aug". Times quoted from a source stay as the source gives them ("11:10 CDT").
 
-Find, where the sources allow:
-- the timeline: formation, deepening, landfall or crossing, the worst hours, decay
+Find, where the sources allow (meteorological reports, case studies and papers first):
+- the synoptic setting: the air masses, the jet, what steered and fed the system
+- the development: formation, deepening rates, transition (for example tropical to extratropical),
+  re-intensification, landfall or crossing, stalling, decay
+- the mechanism of the hazard: the moisture supply, uplift over hills, slow movement, a sting jet,
+  storm surge with onshore wind
 - the lowest central pressure observed or analysed, and where
-- the highest winds, gusts and rain measured, with stations
-- deaths, injuries and people displaced
-- damage: buildings, trees, power, transport, farms, ships
-- losses
+- the highest winds, gusts and rain measured, with stations, and records or return periods
+- the impacts in brief: deaths, the scale of damage, losses
 - the forecasts and warnings at the time, and what changed afterwards
-- what makes it interesting to meteorologists (the process, a record, a lesson)
 
 ## 3. Write the item
 
@@ -110,10 +116,10 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
  "where": {"country": "...", "label": "the area, for a list line", "centre": [lat, lon],
            "bbox": [W, S, E, N], "tz": "<IANA time zone in the middle of the event, e.g. America/Chicago>"},
  "when": {"start": "...Z", "peak": "...Z", "end": "...Z"},
- "summary": "3-4 sentences for a presenter: what happened, where, when, with the headline numbers (deaths, strongest gust or heaviest rain measured, the most striking damage figures such as trees, homes without power, people displaced), each from a source cited below. No measurement caveats here.",
- "impacts": [{"text": "one aspect: deaths; trees; power; transport; floods; losses...", "sources": ["s1", "s3"]}],
+ "summary": "3-4 sentences for a presenter, mostly about the weather: what the system was, where and when, what made it extreme, with the headline measurements (lowest pressure, strongest gust or heaviest rain); then one sentence on the impacts (deaths and the scale of damage). Each figure from a source cited below. No measurement caveats here.",
+ "impacts": [{"text": "1-3 short entries in all: deaths, the scale of damage, losses", "sources": ["s1", "s3"]}],
  "history": [{"text": "the forecasts and warnings at the time, and what changed afterwards", "sources": ["s2"]}],
- "why_interesting": [{"text": "what makes it remarkable to a meteorologist: how fast it deepened, pressure changes, records and return periods, the process (for example a sting jet), what it taught. Not the history of individual measurements: a corrected record gets one sentence at most, and detailed caveats belong in the report", "sources": ["s4"]}],
+ "why_interesting": [{"text": "The weather, 3-6 entries, the heart of the item: the setting, the development, the mechanism of the hazard, records and return periods, what it taught meteorologists. Not the history of individual measurements: a corrected record gets one sentence at most, and detailed caveats belong in the report", "sources": ["s4"]}],
  "reanalysis": "3-4 sentences: how well ERA5 captures it, from the scan, and why it falls short where it does.",
  "era5_vs_observed": [{"quantity": "Lowest central pressure", "era5": "<value, time, place from the scan>",
                        "observed": "<value, time, place from a source>", "sources": ["s4"]}],
@@ -141,7 +147,9 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
   `reanalysis`, not in the table.
 - The forecast story (`history`) includes what forecasters and broadcasters said at the time,
   where a source you read gives it, and what changed afterwards (new warning services,
-  observations, models), each in its own entry.
+  observations, models), each in its own entry. Take it from the weather service, official reviews
+  and inquiries; a news report or a broadcasting complaint decision is not a source for what the
+  forecasters said.
 - `archive_url`: a Wayback Machine copy (search `https://web.archive.org/web/*/<url>`) for any
   page that is old or likely to move. Leave it out if none exists; never invent one.
 - Do not mention this process, the scan, files or tools in any text people read.
@@ -154,8 +162,8 @@ from ERA5 for its own box and window:
 | Event | Scene 1 | Scene 2 | Scene 3 |
 |---|---|---|---|
 | Windstorm (extratropical) | `mslp` fill + `mslp` contours + `wind10` vectors: the low from formation to decay, ocean-basin box | `gust` fill + `mslp` contours + `wind10` vectors: the worst hours, 10-20° box on the land hit | `olr` fill + `mslp` contours: the cloud head and dry slot |
-| Tropical cyclone | `tcwv` or `olr` fill + `mslp` contours: the track across the basin | `wind10` fill + `mslp` contours + `wind10` vectors: landfall, 10-15° box | `precip` or `rain24` fill + `mslp` contours: the rain |
-| Rain and floods | `tcwv` fill + `mslp` contours + `wind850` vectors: the moisture plume | `rain24` fill + `mslp` contours: the totals | `precip` fill: the timing |
+| Tropical cyclone | `tcwv` or `olr` fill + `mslp` contours: the track across the basin | `wind10` fill + `mslp` contours + `wind10` vectors: landfall, 10-15° box | `raintotal` fill + `mslp` contours: the rain total building up (when rain or floods matter) |
+| Rain and floods (including ex-tropical cyclones) | `tcwv` fill + `mslp` contours + `wind850` vectors: the moisture plume | `raintotal` fill + `mslp` contours: the event total building up over 2-4 days, on the flooded areas | `precip` fill: where and when it rained hardest |
 | Snow, cold | `t850` fill + `mslp` contours | `ptype` fill + `mslp` contours | `wind10` fill + vectors |
 
 Each scene:
@@ -167,8 +175,13 @@ Each scene:
  "captions": [{"at": "...Z", "text": "..."}]}
 ```
 
-- Layers: `mslp`, `wind10`, `gust`, `t2m`, `precip`, `rain24`, `tcwv`, `jet250`, `z500`, `wind850`,
-  `t850`, `cape`, `olr`, `ptype`. Vectors: `wind10`, `wind850`, `jet250`. Contours: `mslp`, `z500`.
+- Layers: `mslp`, `wind10`, `gust`, `t2m`, `precip`, `rain24`, `raintotal`, `tcwv`, `jet250`, `z500`,
+  `wind850`, `t850`, `cape`, `olr`, `ptype`. Vectors: `wind10`, `wind850`, `jet250`. Contours: `mslp`, `z500`.
+- **Rain.** When rain or flooding is the story, one scene shows `raintotal`: the rain since the
+  scene began, building up frame by frame. Start it just before the rain sets in and end it after
+  the rain stops (up to 4 days), so the last frame is the event total; compare that with the
+  measured totals in `era5_vs_observed` (the scan's `rain.totals` and `places` give ERA5's).
+  `precip` is a rate (mm/h) and `rain24` a 24 h total: use them for timing, not for the total.
 - Windows: at most 4 days; frames are hourly, and the viewer plays 3 hours of weather a second at
   1× (6 at its usual 2×), so a 2-day scene lasts 8 seconds. Start a few hours before the action.
 - Boxes hold the whole feature through the window, plus a coast or place people know. A scene
@@ -184,7 +197,9 @@ Each scene:
   place's value only for the layer on screen (a gust on the gust map, never rain or pressure at a
   town on the cloud map), and only where it is the point of the moment. The marker already shows
   the centre's position and pressure, so a caption that only repeats them ("Low near Brittany:
-  953 hPa") adds nothing; vague ones ("The low approaches") and lists of station readings neither. They never start with a time (the viewer's clock shows it), never address the viewer
+  953 hPa") adds nothing; vague ones ("The low approaches") and lists of station readings neither.
+  Keep captions on the places the story is about: an ERA5 maximum somewhere else ("36 m/s on the
+  Taranaki coast" in a story about the east coast floods) distracts, however true. They never start with a time (the viewer's clock shows it), never address the viewer
   ("Watch", "Look"), and never carry caveats. A caption stays until the next one, so the last one
   must still be true at the end of the scene. `until` ends one early.
 

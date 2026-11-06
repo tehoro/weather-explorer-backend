@@ -162,13 +162,18 @@ Aim for fifteen (minimum five, maximum eighteen). Prefer:
    each frame) and quote totals; keep `precip` for how the rain moves. Only if the model's totals
    really fall short of the warning, say so plainly or leave the item out; don't caption the
    map as if it showed the warned hazard. Make the scene window cover the warning window, and
-   quote ensemble probabilities for that window and place.
+   quote ensemble probabilities for that window and place. When rain over several days is the
+   story (an atmospheric river, a slow or ex-tropical cyclone, a stalled front), add a `raintotal`
+   scene: the rain since the scene began, building up frame by frame, from the short-range steps
+   of recent runs (up to 3 days back) and then the forecast. Start it when the rain sets in and
+   end it when the rain stops (up to 5 days), so the last frame is the event total; say in the
+   captions which part has fallen and which is forecast.
 
 Collapse duplicates (a typhoon's rain, wind and low signals are one highlight), and neighbours
 with one cause (rain on the Pacific slopes of two neighbouring countries in the same flow is one
 highlight across both). Where several items are the same kind of event, show what differs
 about each in the scenes: how the moisture arrives (`wind850`), the storms (`olr`), the rain
-moving (`precip`) or its totals (`rain24`). The publisher warns when four items have the same
+moving (`precip`), its daily totals (`rain24`) or the event total (`raintotal`). The publisher warns when four items have the same
 scenes, or neighbouring items share a hazard. Leave out signals
 that are large but uninteresting (persistent tropical warmth with no impacts, routine Southern
 Ocean lows) unless there is a story to tell. Look across both hemispheres and the tropics: a

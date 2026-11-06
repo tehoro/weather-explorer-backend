@@ -89,13 +89,13 @@ def review(item_path: Path, run: Path | None) -> str:
            f"**{it['where'].get('country')}** · {it['where'].get('label')} · time zone `{it['where'].get('tz')}`  ",
            f"{it['when'].get('start')} → peak {it['when'].get('peak')} → {it['when'].get('end')} · "
            f"hazards: {', '.join(it.get('hazards', []))}", "", "## What happened", "", it.get("summary", ""), ""]
-    for head, key in (("Impacts", "impacts"), ("The forecast at the time", "history"), ("Why it's interesting", "why_interesting")):
-        entries = it.get(key) or []
-        if isinstance(entries, list) and entries:
-            out += [f"## {head}", ""] + [f"- {e['text']} {refs(e)}" for e in entries] + [""]
+    section = lambda head, key: ([f"## {head}", ""] + [f"- {e['text']} {refs(e)}" for e in it[key]] + [""]
+                                 if isinstance(it.get(key), list) and it[key] else [])
+    out += section("The weather", "why_interesting")
     out += ["## What the reanalysis shows", "", it.get("reanalysis", ""), "",
             "| | ERA5 | Observed |", "|---|---|---|"]
     out += [f"| {r['quantity']} | {r['era5']} | {r['observed']} {refs(r)} |" for r in it.get("era5_vs_observed", [])]
+    out += [""] + section("Impacts", "impacts") + section("The forecast at the time", "history")
     out += ["", "## Sources", ""]
     out += [f"{n + 1}. [{s['title']}]({s['url']}). {', '.join(str(x) for x in (s.get('publisher'), s.get('year')) if x)}. *{s.get('kind')}*"
             + (f" ([archived]({s['archive_url']}))" if s.get("archive_url") else "") for n, s in enumerate(it.get("sources", []))]

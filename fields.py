@@ -73,6 +73,7 @@ class Layer:
     app_ready: bool = True            # False: built and shown on the web, but not yet allowed in
                                       # highlights (the current iPhone app can't rebuild it itself)
     window_h: int = 0                 # accumulated over this many hours ending at the valid time
+    running: bool = False             # accumulated from the scene's first frame (each frame adds the time since the last)
                                       # (rain24), instead of over the interval since the last step
 
 
@@ -112,6 +113,12 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
           [(1, T), (5, "#a6dba088"), (10, "#41b6c4cc"), (25, "#2c7fb8dd"), (50, "#fed976ee"), (100, "#fd8d3cff"), (200, "#e31a1cff"), (400, "#ae017eff")],
           needs_interval=True, accumulated=True, window_h=24, app_ready=False,
           description="Precipitation total over the 24 h ending at the valid time, as most rain warnings give it."),
+    # November 2026, web viewer only: the storm total building up, for rain events over several days.
+    Layer("raintotal", "Rain since the scene began", "mm", ["tp"],
+          [(2, T), (10, "#a6dba088"), (25, "#41b6c4cc"), (50, "#2c7fb8dd"), (100, "#fed976ee"), (200, "#fd8d3cff"), (400, "#e31a1cff"), (700, "#ae017eff")],
+          needs_interval=True, accumulated=True, running=True, app_ready=False,
+          description="Precipitation accumulated from the start of the scene to each frame: the event total building up, "
+                      "from analyses and then the forecast (or the reanalysis for past events)."),
     Layer("tcwv", "Total column water vapour", "kg/m²", ["tcwv"],
           [(15, T), (25, "#c7e9c066"), (35, "#74c476aa"), (45, "#fed976cc"), (55, "#fd8d3cdd"), (65, "#e31a1cee"), (75, "#7a0177ff")],
           description="Moisture plumes: atmospheric rivers and tropical moisture."),
@@ -629,7 +636,7 @@ def _convert(layer: Layer, a: dict[str, np.ndarray], dt_hours: float) -> np.ndar
         return a["t"] - 273.15
     if layer.id == "precip":
         return np.maximum(a["tp"] - a["tp_prev"], 0) * 1000.0 / dt_hours
-    if layer.id == "rain24":
+    if layer.id in ("rain24", "raintotal"):
         return np.maximum(a["tp"] - a["tp_prev"], 0) * 1000.0
     if layer.id == "olr":
         # ttr is accumulated (J/m2, negative = outgoing): mean outgoing flux over the interval.
@@ -666,8 +673,12 @@ def get_frames(layer_id: str, bbox: str | PolarBox, start: str | None, end: str 
     times = frame_times(t0, t1, latest, max_frames)
 
     plan: list[tuple[datetime, datetime, int, int | None]] = []
-    for t in times:
-        src = frame_source(layer, t, latest)
+    for k, t in enumerate(times):
+        if layer.running:   # the rain since the previous frame (the first frame starts the total at zero)
+            gap = int((t - times[k - 1]) / H) if k else int((times[1] - t) / H) if len(times) > 1 else 3
+            src = pick_window(t, latest, gap)
+        else:
+            src = frame_source(layer, t, latest)
         if src:
             plan.append((t, *src))
     futures = {}
@@ -679,7 +690,7 @@ def get_frames(layer_id: str, bbox: str | PolarBox, start: str | None, end: str 
 
     lons, lats = box.target(max_px, native)
     vlons, vlats = (box.target(max(8, max_px // 6), native * 6) if layer.vectors else (None, None))
-    frames, all_vals = [], []
+    frames, all_vals, running = [], [], None
     for i, (t, run, step, prev) in enumerate(plan):
         arrays, grid, ok = {}, None, True
         for key in [k for (j, k) in futures if j == i]:
@@ -695,6 +706,9 @@ def get_frames(layer_id: str, bbox: str | PolarBox, start: str | None, end: str 
                 arrays.setdefault(p + "_prev", np.zeros_like(arrays[p]))
         dt = (step - prev) if prev is not None else 1
         vals = (resample_nearest if layer.categories else resample)(_convert(layer, arrays, dt), grid, lons, lats)
+        if layer.running:   # the first frame is the start (zero); a missing frame's rain is lost from the total
+            running = np.zeros_like(vals) if running is None and t == times[0] else vals if running is None else running + vals
+            vals = running.copy()
         frame = {"valid_time": iso(t), "run": iso(run), "step": step, "_vals": vals}
         if layer.vectors:
             u, v = layer.vectors
@@ -714,7 +728,8 @@ def _era5_frames(layer: Layer, box: Box | PolarBox, start: str, end: str, max_px
     fast storms move smoothly (the viewer plays by time, not by frame); longer scenes are 3-hourly
     and thinned like forecast scenes (max_frames).
 
-    Interval layers cover the time since the previous frame (rain24: 24 h)."""
+    Interval layers cover the time since the previous frame (rain24: 24 h; raintotal adds them up
+    from the first frame)."""
     import era5
     if layer.source != "oper":
         raise ValueError(f"{layer.id}: no ERA5 equivalent")
@@ -725,11 +740,15 @@ def _era5_frames(layer: Layer, box: Box | PolarBox, start: str, end: str, max_px
     else:
         times, step = frame_times(t0, t1, t1, max_frames), 3
     hours = layer.window_h or step
+    gaps = {t: int((t - times[k - 1]) / H) if k else 0 for k, t in enumerate(times)}
 
     def arrays(t: datetime) -> dict[str, np.ndarray]:
         a = {}
         for p in layer.params:
-            if layer.needs_interval and p in era5.SUMMED | era5.MAXIMA:
+            if layer.running:   # the rain since the previous frame; the total starts at zero
+                a[p] = era5.interval(p, t, gaps[t]) if gaps[t] else np.zeros_like(era5.field(p, t))
+                a[p + "_prev"] = np.zeros_like(a[p])
+            elif layer.needs_interval and p in era5.SUMMED | era5.MAXIMA:
                 a[p] = era5.interval(p, t, hours)
                 if layer.accumulated:
                     a[p + "_prev"] = np.zeros_like(a[p])
@@ -739,10 +758,13 @@ def _era5_frames(layer: Layer, box: Box | PolarBox, start: str, end: str, max_px
 
     lons, lats = box.target(max_px, 0.25)
     vlons, vlats = (box.target(max(8, max_px // 6), 0.25 * 6) if layer.vectors else (None, None))
-    frames, all_vals = [], []
+    frames, all_vals, running = [], [], None
     for t, fut in [(t, _pool.submit(arrays, t)) for t in times]:
         a = fut.result()
         vals = (resample_nearest if layer.categories else resample)(_convert(layer, a, hours), era5.GRID, lons, lats)
+        if layer.running:
+            running = vals if running is None else running + vals
+            vals = running.copy()
         frame = {"valid_time": iso(t), "_vals": vals}
         if layer.vectors:
             u, v = layer.vectors

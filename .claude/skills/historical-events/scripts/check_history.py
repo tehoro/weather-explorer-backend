@@ -212,6 +212,10 @@ def main() -> int:
     used = cited(it.get("impacts"), "impacts", ids, IMPACT_KINDS)
     if not it.get("impacts"):
         err("impacts: none")
+    elif len(it["impacts"]) > 3:
+        warn(f"impacts: {len(it['impacts'])} entries; summarise in 1-3 (the weather comes first)")
+    if isinstance(it.get("why_interesting"), list) and len(it["why_interesting"]) < 3:
+        warn("why_interesting: 3-6 entries on the meteorology (setting, development, mechanism, records)")
     used |= cited(it.get("history") or [], "history", ids)
     wi = it.get("why_interesting")
     if isinstance(wi, list):
@@ -290,6 +294,8 @@ def main() -> int:
                 last = t
                 if scan:
                     print(f"  {w} {c.get('at')}: {text}\n      ERA5: {scan_at(scan, t)}")
+    if set(hz) & {"rain", "flood"} and not any(sc.get("fill") == "raintotal" for sc in scenes):
+        warn("rain or flood item without a raintotal scene: show the event total building up")
     if scan and ts.get("peak"):
         lows = (scan.get("lows") or {}).get(fields.iso(ts["peak"])) or []
         track = scan.get("track") or []
