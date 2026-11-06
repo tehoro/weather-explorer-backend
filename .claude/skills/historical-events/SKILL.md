@@ -14,10 +14,10 @@ comparison of what ERA5 shows with what was measured.
 No warnings, forecasts or probabilities are needed. Accuracy and honest sourcing come first: a
 shorter account where every figure is checked beats a longer one with doubtful numbers.
 
-**The weather comes first.** This is a weather explorer: most of the text explains the
-meteorology (how the system formed and developed, why it was so wet or windy there, what was
-remarkable, what ERA5 shows of it). The impacts are summarised briefly and respectfully, in a few
-lines (deaths, the scale of damage, losses), not catalogued.
+**The weather leads.** This is a weather explorer, so the emphasis is on the meteorology (how
+the system formed and developed, why it was so wet or windy there, what was remarkable, what ERA5
+shows of it). The impacts still matter and get a clear, complete summary (deaths, the main kinds
+of damage, losses), concise rather than a long catalogue of every road and bridge.
 
 Work from the backend directory (the one holding `era5.py`). `$S` below is
 `.claude/skills/historical-events`. Run Python with `uv run --frozen python`.
@@ -96,7 +96,7 @@ Find, where the sources allow (meteorological reports, case studies and papers f
   storm surge with onshore wind
 - the lowest central pressure observed or analysed, and where
 - the highest winds, gusts and rain measured, with stations, and records or return periods
-- the impacts in brief: deaths, the scale of damage, losses
+- the impacts: deaths, the main kinds of damage, losses
 - the forecasts and warnings at the time, and what changed afterwards
 
 ## 3. Write the item
@@ -116,8 +116,8 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
  "where": {"country": "...", "label": "the area, for a list line", "centre": [lat, lon],
            "bbox": [W, S, E, N], "tz": "<IANA time zone in the middle of the event, e.g. America/Chicago>"},
  "when": {"start": "...Z", "peak": "...Z", "end": "...Z"},
- "summary": "3-4 sentences for a presenter, mostly about the weather: what the system was, where and when, what made it extreme, with the headline measurements (lowest pressure, strongest gust or heaviest rain); then one sentence on the impacts (deaths and the scale of damage). Each figure from a source cited below. No measurement caveats here.",
- "impacts": [{"text": "1-3 short entries in all: deaths, the scale of damage, losses", "sources": ["s1", "s3"]}],
+ "summary": "3-4 sentences for a presenter, mostly about the weather: what the system was, where and when, what made it extreme, with the headline measurements (lowest pressure, strongest gust or heaviest rain); then the impacts in a sentence or two (deaths and the scale of damage). Each figure from a source cited below. No measurement caveats here.",
+ "impacts": [{"text": "2-4 entries in all, each a concise paragraph: deaths; the main kinds of damage; losses", "sources": ["s1", "s3"]}],
  "history": [{"text": "the forecasts and warnings at the time, and what changed afterwards", "sources": ["s2"]}],
  "why_interesting": [{"text": "The weather, 3-6 entries, the heart of the item: the setting, the development, the mechanism of the hazard, records and return periods, what it taught meteorologists. Not the history of individual measurements: a corrected record gets one sentence at most, and detailed caveats belong in the report", "sources": ["s4"]}],
  "reanalysis": "3-4 sentences: how well ERA5 captures it, from the scan, and why it falls short where it does.",

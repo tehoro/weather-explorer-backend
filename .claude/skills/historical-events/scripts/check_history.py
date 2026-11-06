@@ -212,8 +212,8 @@ def main() -> int:
     used = cited(it.get("impacts"), "impacts", ids, IMPACT_KINDS)
     if not it.get("impacts"):
         err("impacts: none")
-    elif len(it["impacts"]) > 3:
-        warn(f"impacts: {len(it['impacts'])} entries; summarise in 1-3 (the weather comes first)")
+    elif len(it["impacts"]) > 4:
+        warn(f"impacts: {len(it['impacts'])} entries; summarise them in 2-4 (the weather leads)")
     if isinstance(it.get("why_interesting"), list) and len(it["why_interesting"]) < 3:
         warn("why_interesting: 3-6 entries on the meteorology (setting, development, mechanism, records)")
     used |= cited(it.get("history") or [], "history", ids)
