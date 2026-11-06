@@ -645,10 +645,14 @@ def _convert(layer: Layer, a: dict[str, np.ndarray], dt_hours: float) -> np.ndar
 
 
 def get_frames(layer_id: str, bbox: str | PolarBox, start: str | None, end: str | None, max_px: int = 320,
-               max_frames: int = 40) -> dict:
-    """Frames for a "west,south,east,north" box (Mercator grid) or a PolarBox."""
+               max_frames: int = 40, source: str = "opendata") -> dict:
+    """Frames for a "west,south,east,north" box (Mercator grid) or a PolarBox.
+
+    source "era5" reads the ERA5 reanalysis instead (era5.py), for historical events only."""
     layer = LAYERS[layer_id]
     box = bbox if isinstance(bbox, PolarBox) else Box.parse(bbox)
+    if source == "era5":
+        return _era5_frames(layer, box, start, end, max_px, max_frames)
     res = choose_resolution(box, max_px)
     native = 0.1 if res == "0p1" else 0.25
     if layer.source == "ens":
@@ -702,6 +706,54 @@ def get_frames(layer_id: str, bbox: str | PolarBox, start: str | None, end: str 
     return _package(layer, box, lons, lats, frames, all_vals, latest, vlons, vlats, res=res)
 
 
+ERA5_HOURLY_MAX = 96   # ERA5 scenes up to 4 days long get a frame every hour
+
+
+def _era5_frames(layer: Layer, box: Box | PolarBox, start: str, end: str, max_px: int, max_frames: int) -> dict:
+    """Frames from ERA5 (0.25 deg, hourly): every hour for scenes up to ERA5_HOURLY_MAX frames, so
+    fast storms move smoothly (the viewer plays by time, not by frame); longer scenes are 3-hourly
+    and thinned like forecast scenes (max_frames).
+
+    Interval layers cover the time since the previous frame (rain24: 24 h)."""
+    import era5
+    if layer.source != "oper":
+        raise ValueError(f"{layer.id}: no ERA5 equivalent")
+    t0, t1 = parse_time(start), parse_time(end)
+    span = int((t1 - t0) / H)
+    if span < ERA5_HOURLY_MAX:
+        times, step = [t0 + k * H for k in range(span + 1)], 1
+    else:
+        times, step = frame_times(t0, t1, t1, max_frames), 3
+    hours = layer.window_h or step
+
+    def arrays(t: datetime) -> dict[str, np.ndarray]:
+        a = {}
+        for p in layer.params:
+            if layer.needs_interval and p in era5.SUMMED | era5.MAXIMA:
+                a[p] = era5.interval(p, t, hours)
+                if layer.accumulated:
+                    a[p + "_prev"] = np.zeros_like(a[p])
+            else:
+                a[p] = era5.field(p, t, layer.levelist)
+        return a
+
+    lons, lats = box.target(max_px, 0.25)
+    vlons, vlats = (box.target(max(8, max_px // 6), 0.25 * 6) if layer.vectors else (None, None))
+    frames, all_vals = [], []
+    for t, fut in [(t, _pool.submit(arrays, t)) for t in times]:
+        a = fut.result()
+        vals = (resample_nearest if layer.categories else resample)(_convert(layer, a, hours), era5.GRID, lons, lats)
+        frame = {"valid_time": iso(t), "_vals": vals}
+        if layer.vectors:
+            u, v = layer.vectors
+            frame["_u"] = resample(a[u], era5.GRID, vlons, vlats)
+            frame["_v"] = resample(a[v], era5.GRID, vlons, vlats)
+        frames.append(frame)
+        all_vals.append(vals)
+    return _package(layer, box, lons, lats, frames, all_vals, None, vlons, vlats, model=era5.MODEL,
+                    attribution=era5.ATTRIBUTION)
+
+
 def ens_windows(run: datetime, t0: datetime | None, t1: datetime | None) -> list[tuple[int, int]]:
     """24 h probability windows (start_h, end_h), every 12 h out to +360 h, overlapping [t0, t1]."""
     wins = [(e - 24, e) for e in range(24, 361, 12)]
@@ -753,7 +805,8 @@ def _ens_frames_for(layer: Layer, box: Box, max_px: int, run: datetime, res: str
                     model="IFS ENS probabilities (Open Data)", res=res)
 
 
-def _package(layer, box, lons, lats, frames, all_vals, run, vlons, vlats, model="IFS HRES (Open Data)", res="0p25") -> dict:
+def _package(layer, box, lons, lats, frames, all_vals, run, vlons, vlats, model="IFS HRES (Open Data)", res="0p25",
+             attribution: str = ATTRIBUTION) -> dict:
     stack = np.stack(all_vals) if all_vals else np.zeros((1, 1))
     if lons.ndim == 2:                          # polar grid: (ny, nx) arrays
         (ny, nx), grid = lons.shape, box.meta()
@@ -786,7 +839,7 @@ def _package(layer, box, lons, lats, frames, all_vals, run, vlons, vlats, model=
         "vectors": vec, "frames": out_frames,
         **({"categories": [{"value": v, "label": lbl, "color": c} for v, lbl, c in layer.categories]}
            if layer.categories else {}),
-        "attribution": ATTRIBUTION.format(year=datetime.now(timezone.utc).year),
+        "attribution": attribution.format(year=datetime.now(timezone.utc).year),
     }
 
 

@@ -14,3 +14,8 @@ dependencies = [
     "claude-agent-sdk>=0.1",
     "openai==3.42.0",
 ]
+
+[project.optional-dependencies]
+history = [
+    "numcodecs>=0.13",
+]

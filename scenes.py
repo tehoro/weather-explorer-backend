@@ -137,9 +137,12 @@ def build(feed_path: Path = store.FEED) -> int:
     return written
 
 
-def build_items(items: list[dict], tag: str) -> int:
-    """Build scene files for these items into data/scenes/<tag>/, adding scene["data"]; saves them to storage."""
-    out_dir = DIR / tag
+def build_items(items: list[dict], tag: str, source: str = "opendata", out_dir: Path | None = None) -> int:
+    """Build scene files for these items into data/scenes/<tag>/, adding scene["data"]; saves them to storage.
+
+    With out_dir (historical events, source "era5") the files go there instead and are not saved."""
+    keep = out_dir is None
+    out_dir = out_dir or DIR / tag
     out_dir.mkdir(parents=True, exist_ok=True)
     written = 0
     for item in items:
@@ -156,7 +159,8 @@ def build_items(items: list[dict], tag: str) -> int:
                     try:
                         data = fields.get_frames(layer, box, scene.get("start"), scene.get("end"),
                                                  round(PIXELS[role] * grow),
-                                                 fields.scene_frame_count(scene.get("start", ""), scene.get("end", "")))
+                                                 fields.scene_frame_count(scene.get("start", ""), scene.get("end", "")),
+                                                 source)
                     except Exception as e:
                         print(f"[scenes] {item['id']} scene {n} {layer}: {e}", file=sys.stderr, flush=True)
                         continue
@@ -171,7 +175,8 @@ def build_items(items: list[dict], tag: str) -> int:
                 scene["web_data" if polar else "data"] = files
             if "fill" in files:
                 align_captions(scene, _valid_times(out_dir / files["fill"].split("/", 1)[1]), item["id"], n)
-    store.save_scenes(out_dir)
+    if keep:
+        store.save_scenes(out_dir)
     return written
 
 
