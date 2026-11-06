@@ -91,6 +91,9 @@ Find, where the sources allow:
 
 Write `data/history/draft.json` in this form. All text is plain British English: short sentences,
 concrete numbers, no drama, respectful where lives were lost, for presenters and non-specialists.
+Use everyday words: say "the recorder reached its limit, so the true peak was higher", not "an
+uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coordinates such as
+"48.13°N, 6.06°W"; round ERA5 values (951 hPa, 42 m/s).
 
 ```json
 {
@@ -101,7 +104,7 @@ concrete numbers, no drama, respectful where lives were lost, for presenters and
  "where": {"country": "...", "label": "the area, for a list line", "centre": [lat, lon],
            "bbox": [W, S, E, N], "tz": "<IANA time zone in the middle of the event, e.g. America/Chicago>"},
  "when": {"start": "...Z", "peak": "...Z", "end": "...Z"},
- "summary": "3-4 sentences: what happened, where, when, and the main impacts.",
+ "summary": "3-4 sentences: what happened, where, when, with the headline numbers (deaths, strongest gust or heaviest rain measured, the most striking damage figure), each from a source cited below.",
  "impacts": [{"text": "one aspect: deaths; trees; power; transport; floods; losses...", "sources": ["s1", "s3"]}],
  "history": [{"text": "the forecasts and warnings at the time, and what changed afterwards", "sources": ["s2"]}],
  "why_interesting": [{"text": "the meteorology: the process, a record, what it taught", "sources": ["s4"]}],
@@ -124,14 +127,19 @@ concrete numbers, no drama, respectful where lives were lost, for presenters and
   `official`, `peer-reviewed` or `archive` source (`statistics` alone is enough only for losses).
 - `era5_vs_observed`: 3-7 rows. Lowest central pressure, strongest gust (or wind), heaviest rain
   where relevant, and one or two named places. The `era5` cell comes from the scan; the
-  `observed` cell from a source.
+  `observed` cell from a source. Each cell is short, under about 100 characters: the value, the
+  time and the place ("98 kn at 03:10 GMT; probably 100 kn later"). Caveats and explanations go in
+  `reanalysis`, not in the table.
+- The forecast story (`history`) includes what forecasters and broadcasters said at the time,
+  where a source you read gives it, and what changed afterwards.
 - `archive_url`: a Wayback Machine copy (search `https://web.archive.org/web/*/<url>`) for any
   page that is old or likely to move. Leave it out if none exists; never invent one.
 - Do not mention this process, the scan, files or tools in any text people read.
 
 ### Scenes
 
-Two or three scenes that tell the story, each built from ERA5 for its own box and window:
+Three scenes that tell the story (two only when a third would repeat one of them), each built
+from ERA5 for its own box and window:
 
 | Event | Scene 1 | Scene 2 | Scene 3 |
 |---|---|---|---|

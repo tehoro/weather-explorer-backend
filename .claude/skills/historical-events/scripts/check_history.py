@@ -70,12 +70,17 @@ def bbox_ok(b, where: str) -> bool:
     return True
 
 
+GRID_POINT = re.compile(r"\d+\.\d{2}\s*°\s*[NS]\b|\d+\.\d{2}\s*°\s*[EW]\b")
+
+
 def text_ok(text, where: str) -> None:
     if not isinstance(text, str) or not text.strip():
         err(f"{where}: empty text")
         return
     if PROCESS.search(text):
         err(f"{where}: mentions how it was made ({PROCESS.search(text).group(0)!r}); write for the reader")
+    if GRID_POINT.search(text):
+        warn(f"{where}: grid coordinates ({GRID_POINT.search(text).group(0)!r}); name the place instead")
 
 
 def cited(entries, where: str, ids: dict, kinds: set | None = None, need_text: str = "text") -> set:
@@ -170,6 +175,8 @@ def main() -> int:
     if all(ts.values()) and not ts["start"] <= ts["peak"] <= ts["end"]:
         err("when: start <= peak <= end")
     text_ok(it.get("summary"), "summary")
+    if isinstance(it.get("summary"), str) and len(NUMBER.findall(it["summary"])) < 2:
+        warn("summary: give the headline numbers (deaths, strongest gust or rain, damage)")
     text_ok(it.get("reanalysis"), "reanalysis")
 
     sources = it.get("sources") or []
@@ -214,6 +221,9 @@ def main() -> int:
     for k, r in enumerate(rows):
         for key in ("quantity", "era5"):
             text_ok(r.get(key), f"era5_vs_observed[{k}].{key}")
+        for key in ("era5", "observed"):
+            if len(r.get(key) or "") > 140:
+                warn(f"era5_vs_observed[{k}].{key}: {len(r[key])} characters; keep cells short, explain in reanalysis")
     used |= cited(rows, "era5_vs_observed", ids, need_text="observed")
     for sid in ids:
         if sid not in used:

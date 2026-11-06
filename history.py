@@ -97,7 +97,7 @@ def review(item_path: Path, run: Path | None) -> str:
             "| | ERA5 | Observed |", "|---|---|---|"]
     out += [f"| {r['quantity']} | {r['era5']} | {r['observed']} {refs(r)} |" for r in it.get("era5_vs_observed", [])]
     out += ["", "## Sources", ""]
-    out += [f"{n + 1}. [{s['title']}]({s['url']}). {s.get('publisher', '')}, {s.get('year', '')}. *{s.get('kind')}*"
+    out += [f"{n + 1}. [{s['title']}]({s['url']}). {', '.join(str(x) for x in (s.get('publisher'), s.get('year')) if x)}. *{s.get('kind')}*"
             + (f" ([archived]({s['archive_url']}))" if s.get("archive_url") else "") for n, s in enumerate(it.get("sources", []))]
     out += ["", "## Scenes", ""]
     for n, sc in enumerate(it.get("scenes", [])):
