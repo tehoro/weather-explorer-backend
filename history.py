@@ -19,6 +19,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import era5
 import scenes
@@ -29,6 +30,11 @@ def build(item_path: Path, out: Path) -> Path:
     item = json.loads(item_path.read_text())
     if item.get("kind") != "historical":
         raise SystemExit(f"{item_path}: kind must be 'historical'")
+    try:   # the event's own time zone, which the viewer offers alongside UTC
+        ZoneInfo(item["where"]["tz"])
+    except (KeyError, TypeError, ValueError, ZoneInfoNotFoundError):
+        print(f"[history] {item['id']}: no valid where.tz (an IANA zone such as Europe/London); "
+              "the viewer will show UTC only", file=sys.stderr)
     folder = out / item["id"]
     folder.mkdir(parents=True, exist_ok=True)
     written = scenes.build_items([item], "history", source="era5", out_dir=folder)
