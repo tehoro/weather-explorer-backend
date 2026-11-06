@@ -179,6 +179,14 @@ def check_captions(sc: dict, sw: str, warnings: list) -> None:
         elif at not in times:
             warnings.append(f"{sw}: caption at {c['at']} falls between frames and would first show at the next one; "
                             f"use a frame time (frames: {shown})")
+        try:
+            short = c.get("until") and fields.parse_time(c["until"]) - at < timedelta(hours=12)
+        except Exception:
+            short = False
+        if short:
+            warnings.append(f"{sw}: caption at {c['at']} has `until` {c['until']}, under 12 h later: at normal speed "
+                            "that is under 2 seconds on screen. Use `until` only for when the state it describes ends, "
+                            "or leave it out and let the next caption replace it")
     last = max((c.get("at", "") for c in caps), default="")
     if (last and not any(c.get("until") for c in caps)
             and times[-1] - fields.parse_time(last) >= timedelta(hours=24)):

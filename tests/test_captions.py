@@ -122,6 +122,19 @@ class PublicText(unittest.TestCase):
         self.assertTrue(P.about_nz({"where": {"country": "Tasman Sea"}, "title": "Low heads for New Zealand"}))
         self.assertFalse(P.about_nz({"where": {"country": "Australia"}, "title": "Heat in Perth"}))
 
+    def test_short_until_warns(self):
+        sc = {"fill": "mslp", "start": "2026-11-04T00:00Z", "end": "2026-11-05T00:00Z",
+              "captions": [{"at": "2026-11-04T00:00Z", "text": "a", "until": "2026-11-04T03:00Z"},
+                           {"at": "2026-11-04T12:00Z", "text": "b", "until": "2026-11-05T00:00Z"}]}
+        w = []
+        orig = P.fields.scene_times
+        P.fields.scene_times = lambda *a: [P.fields.parse_time("2026-11-04T00:00Z") + k * H for k in range(0, 25, 3)]
+        try:
+            P.check_captions(sc, "s", w)
+        finally:
+            P.fields.scene_times = orig
+        self.assertEqual(len([x for x in w if "under 12 h" in x]), 1)
+
     def test_vacuous_evidence(self):
         self.assertTrue(P.VACUOUS.search("NASA Ozone Watch and NOAA CPC provide observational context"))
         self.assertFalse(P.VACUOUS.search("NASA Ozone Watch: 9 m/s at 60°N on 1 Nov, lowest since 1979"))

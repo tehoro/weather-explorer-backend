@@ -375,8 +375,11 @@ Captions:
 - **Tied to their moment.** A caption stays on screen until the next one, often for days, so word
   it as an event at that time ("The vortex has moved south of Iceland"), not as a lasting
   state ("the cap temperature is −58 °C") that goes stale. When a state stops being true before the
-  next caption, give the caption an `until`. The last caption stays to the end of the scene: check
-  it is still true on the last frame, or end with a caption at the last frame.
+  next caption, give the caption an `until` at the time it stops being true. An `until` is not
+  for keeping captions short: the viewer plays about 6 forecast hours a second, and a caption needs
+  several seconds to read, so space captions at least 12 h apart and never set an `until` one or
+  two frames after the `at`. The last caption stays to the end of the scene: check it is still true
+  on the last frame, or end with a caption at the last frame.
 - **Numbers from the frame shown**, in the run the frame comes from.
 - **What to watch.** Each caption points at what changes or stands out on the map: the band
   moving, the core tightening, the contrast between two places. The same value at the same town
