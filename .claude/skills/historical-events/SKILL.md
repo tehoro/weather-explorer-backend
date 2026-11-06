@@ -110,10 +110,10 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
  "where": {"country": "...", "label": "the area, for a list line", "centre": [lat, lon],
            "bbox": [W, S, E, N], "tz": "<IANA time zone in the middle of the event, e.g. America/Chicago>"},
  "when": {"start": "...Z", "peak": "...Z", "end": "...Z"},
- "summary": "3-4 sentences: what happened, where, when, with the headline numbers (deaths, strongest gust or heaviest rain measured, the most striking damage figure), each from a source cited below.",
+ "summary": "3-4 sentences for a presenter: what happened, where, when, with the headline numbers (deaths, strongest gust or heaviest rain measured, the most striking damage figures such as trees, homes without power, people displaced), each from a source cited below. No measurement caveats here.",
  "impacts": [{"text": "one aspect: deaths; trees; power; transport; floods; losses...", "sources": ["s1", "s3"]}],
  "history": [{"text": "the forecasts and warnings at the time, and what changed afterwards", "sources": ["s2"]}],
- "why_interesting": [{"text": "what makes it remarkable: how fast it deepened, records, return periods, the process, what it taught", "sources": ["s4"]}],
+ "why_interesting": [{"text": "what makes it remarkable to a meteorologist: how fast it deepened, pressure changes, records and return periods, the process (for example a sting jet), what it taught. Not the history of individual measurements: a corrected record gets one sentence at most, and detailed caveats belong in the report", "sources": ["s4"]}],
  "reanalysis": "3-4 sentences: how well ERA5 captures it, from the scan, and why it falls short where it does.",
  "era5_vs_observed": [{"quantity": "Lowest central pressure", "era5": "<value, time, place from the scan>",
                        "observed": "<value, time, place from a source>", "sources": ["s4"]}],
@@ -140,7 +140,8 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
   time and the place ("98 kn at 03:10 GMT; probably 100 kn later"). Caveats and explanations go in
   `reanalysis`, not in the table.
 - The forecast story (`history`) includes what forecasters and broadcasters said at the time,
-  where a source you read gives it, and what changed afterwards.
+  where a source you read gives it, and what changed afterwards (new warning services,
+  observations, models), each in its own entry.
 - `archive_url`: a Wayback Machine copy (search `https://web.archive.org/web/*/<url>`) for any
   page that is old or likely to move. Leave it out if none exists; never invent one.
 - Do not mention this process, the scan, files or tools in any text people read.
@@ -177,10 +178,13 @@ Each scene:
 - Titles in everyday words: "Cloud tops", "The strongest gusts", not "infrared cloud radiation".
 - Captions: 2-4 per scene, at least 6 hours apart, each under about 70 characters, saying what is
   happening at that moment with places and values from the scan ("Gusts near 45 m/s on the
-  Mississippi coast"). Point at what the viewer should notice beyond the moving marker: where the
-  strongest winds or rain hit land, the cloud head hooking round, a place's pressure falling. The
-  marker already shows the centre's position and pressure, so a caption that only repeats them
-  ("Low near Brittany: 953 hPa") adds nothing; vague ones ("The low approaches") neither. They never start with a time (the viewer's clock shows it), never address the viewer
+  Mississippi coast"). Describe what the scene's own map shows at its own scale: on a pressure map
+  the low deepening and the isobars tightening; on a gust map the swathe of strongest gusts crossing
+  the land; on a cloud-top map the cloud spreading, hooking round the centre, or clearing. Use a
+  place's value only for the layer on screen (a gust on the gust map, never rain or pressure at a
+  town on the cloud map), and only where it is the point of the moment. The marker already shows
+  the centre's position and pressure, so a caption that only repeats them ("Low near Brittany:
+  953 hPa") adds nothing; vague ones ("The low approaches") and lists of station readings neither. They never start with a time (the viewer's clock shows it), never address the viewer
   ("Watch", "Look"), and never carry caveats. A caption stays until the next one, so the last one
   must still be true at the end of the scene. `until` ends one early.
 
