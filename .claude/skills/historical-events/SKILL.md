@@ -63,7 +63,9 @@ Sources, in this order of preference (`kind` in the item):
    libraries and archives).
 
 Wikipedia, news and blogs may help you **find** sources, but are never cited. A newspaper of the
-time held by a national archive counts as `archive`.
+time held by a national archive counts as `archive`. Link each source at its publisher, or at an
+official or educational copy (a national weather service, a learned society, a university), not at
+ResearchGate, Academia.edu or a file-sharing site.
 
 Rules for figures:
 - **Deaths:** say how they are counted (direct or indirect, which country, whose count). If
@@ -74,6 +76,10 @@ Rules for figures:
   whether the value was measured or estimated.
 - **Disagreement:** when sources disagree (a different highest gust, a different death toll), say
   so and give both.
+- **Corrections:** records are sometimes corrected or withdrawn later (a faulty instrument, a
+  re-analysis of the data). For every record value you use, search for later corrections. Give
+  the corrected value, say what changed and cite the source of the correction; if you find a
+  correction only in a secondary source, say so.
 - **Times in text** that should change with the reader's time zone are written as "03 UTC 29 Aug"
   or "06-12 UTC 29 Aug". Times quoted from a source stay as the source gives them ("11:10 CDT").
 
@@ -107,7 +113,7 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
  "summary": "3-4 sentences: what happened, where, when, with the headline numbers (deaths, strongest gust or heaviest rain measured, the most striking damage figure), each from a source cited below.",
  "impacts": [{"text": "one aspect: deaths; trees; power; transport; floods; losses...", "sources": ["s1", "s3"]}],
  "history": [{"text": "the forecasts and warnings at the time, and what changed afterwards", "sources": ["s2"]}],
- "why_interesting": [{"text": "the meteorology: the process, a record, what it taught", "sources": ["s4"]}],
+ "why_interesting": [{"text": "what makes it remarkable: how fast it deepened, records, return periods, the process, what it taught", "sources": ["s4"]}],
  "reanalysis": "3-4 sentences: how well ERA5 captures it, from the scan, and why it falls short where it does.",
  "era5_vs_observed": [{"quantity": "Lowest central pressure", "era5": "<value, time, place from the scan>",
                        "observed": "<value, time, place from a source>", "sources": ["s4"]}],
@@ -125,8 +131,11 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
 - **Every** entry in `impacts`, `history`, `why_interesting` and `era5_vs_observed` cites at least
   one source, and every figure in its text is in one of those sources. Impacts cite at least one
   `official`, `peer-reviewed` or `archive` source (`statistics` alone is enough only for losses).
-- `era5_vs_observed`: 3-7 rows. Lowest central pressure, strongest gust (or wind), heaviest rain
-  where relevant, and one or two named places. The `era5` cell comes from the scan; the
+- `era5_vs_observed`: 3-7 rows, each comparing like with like: the same quantity at the same
+  place (a named station, using the scan's `places`), or the storm's lowest central pressure in
+  both. Never set ERA5's highest value anywhere against a measurement somewhere else, and never
+  repeat a row. Include the central pressure, the stations with the strongest measured gusts (or
+  rain), and one or two places people know. The `era5` cell comes from the scan; the
   `observed` cell from a source. Each cell is short, under about 100 characters: the value, the
   time and the place ("98 kn at 03:10 GMT; probably 100 kn later"). Caveats and explanations go in
   `reanalysis`, not in the table.
@@ -165,9 +174,13 @@ Each scene:
   box reaching past 75° latitude is drawn on a polar grid; the track is not drawn there.
 - `focus`: up to 5 places named in the text. Do not add a point for the storm centre: the viewer
   draws the track, a moving marker and the central pressure itself.
+- Titles in everyday words: "Cloud tops", "The strongest gusts", not "infrared cloud radiation".
 - Captions: 2-4 per scene, at least 6 hours apart, each under about 70 characters, saying what is
   happening at that moment with places and values from the scan ("Gusts near 45 m/s on the
-  Mississippi coast"). They never start with a time (the viewer's clock shows it), never address the viewer
+  Mississippi coast"). Point at what the viewer should notice beyond the moving marker: where the
+  strongest winds or rain hit land, the cloud head hooking round, a place's pressure falling. The
+  marker already shows the centre's position and pressure, so a caption that only repeats them
+  ("Low near Brittany: 953 hPa") adds nothing; vague ones ("The low approaches") neither. They never start with a time (the viewer's clock shows it), never address the viewer
   ("Watch", "Look"), and never carry caveats. A caption stays until the next one, so the last one
   must still be true at the end of the scene. `until` ends one early.
 

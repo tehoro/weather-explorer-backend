@@ -25,6 +25,7 @@ KINDS = {"official", "peer-reviewed", "statistics", "archive"}
 IMPACT_KINDS = {"official", "peer-reviewed", "archive"}
 HAZARDS = {"tropical-cyclone", "wind", "rain", "flood", "convection", "snow", "ice", "coastal", "heat", "cold", "other"}
 NOT_CITABLE = re.compile(r"(^|\.)(wikipedia|wikimedia|wikiwand|fandom|reddit|facebook|twitter|x|youtube|medium|blogspot|wordpress)\.(org|com)$")
+SECOND_HAND = re.compile(r"(^|\.)(researchgate\.net|academia\.edu|scribd\.com|docplayer\.\w+|yumpu\.com)$")
 LAYERS = {k for k, l in fields.LAYERS.items() if l.source == "oper"}
 VECTORS = {"wind10", "wind850", "jet250"}
 CONTOURS = {"mslp", "z500"}
@@ -203,6 +204,8 @@ def main() -> int:
             host = re.sub(r"^https?://([^/:]+).*", r"\1", u).lower()
             if NOT_CITABLE.search(host) and key == "url":
                 err(f"{w} ({sid}): {host} is not a citable source (use it only to find sources)")
+            elif SECOND_HAND.search(host) and key == "url":
+                warn(f"{w} ({sid}): link the publisher's or an official copy rather than {host}")
     if not sources:
         err("sources: none")
 
@@ -225,6 +228,13 @@ def main() -> int:
             if len(r.get(key) or "") > 140:
                 warn(f"era5_vs_observed[{k}].{key}: {len(r[key])} characters; keep cells short, explain in reanalysis")
     used |= cited(rows, "era5_vs_observed", ids, need_text="observed")
+    for key in ("quantity", "observed"):
+        seen = [str(r.get(key, "")).strip().lower() for r in rows]
+        for v in {v for v in seen if v and seen.count(v) > 1}:
+            warn(f"era5_vs_observed: two rows with the same {key} ({v[:60]!r})")
+    for k, r in enumerate(rows):
+        if re.search(r"\b(anywhere|in the (event )?area|regional|domain)\b", r.get("quantity", "") + " " + r.get("era5", ""), re.IGNORECASE):
+            warn(f"era5_vs_observed[{k}]: compare like with like (the same place in both columns)")
     for sid in ids:
         if sid not in used:
             warn(f"source {sid} is never cited")
@@ -268,6 +278,9 @@ def main() -> int:
                 warn(f"{cw}: {len(text)} characters; aim for under 70")
             if re.match(r"\s*(watch|look|see|note|compare|follow)\b", text or "", re.IGNORECASE):
                 err(f"{cw}: addresses the viewer")
+            if re.search(r"\b(low|centre|center)\b.*\b\d{3,4}\s*hPa\b|\b\d{3,4}\s*hPa\b.*\b(low|centre|center)\b", text or "", re.IGNORECASE) \
+                    and not re.search(r"\b(gust|wind|rain|m/s|mm|kn)\b", text or "", re.IGNORECASE):
+                warn(f"{cw}: only repeats the centre's pressure, which the moving marker shows; say what else to notice")
             t = time_of(c.get("at"), f"{cw}.at")
             if t and t0 and t1 and not t0 <= t <= t1:
                 err(f"{cw}: at {c['at']} is outside the scene's window")
