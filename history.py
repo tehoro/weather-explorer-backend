@@ -5,6 +5,7 @@ the Replit server (§2 of AGENTS.md): each step is a one-off batch job per event
   uv run --frozen --extra history python history.py research <event id> --events events.json --out items/
   uv run --frozen --extra history python history.py review items/<id>.json --run <run folder> > review.md
   uv run --frozen --extra history python history.py build items/<id>.json [--out data/history]
+  uv run --frozen --extra history python history.py build3d <out>/<id> --web ../web
 
 research  scans ERA5 for the brief in events.json ({"events": [{id, title, country, start, end, bbox,
           notes?, places?}]}), has Sol (openai_agent.history, the historical-events skill) write the
@@ -18,6 +19,10 @@ build     the item's scenes from ERA5 (era5.py), with the same layers, boxes and
   <out>/<item id>/item.json                       the item, scene "data" naming the files below, and
                                                   scene "track"
   <out>/<item id>/<item id>-<n>-<role>.json.gz    role: fill, contours or vectors
+
+build3d   for a tropical cyclone, the 3D view's bundle from ERA5 (the web repository's build3d.py
+          packs it): <web>/history/3d/<id>-<key>/, and item["view3d"] in <out>/<id>/item.json.
+          About 100 downloads of 85 MB (all 37 levels of a variable each hour), so 10-30 minutes.
 
 The web repository's history.py turns that folder into the viewer's packages.
 """
@@ -59,6 +64,63 @@ def build(item_path: Path, out: Path) -> Path:
     (folder / "item.json").write_text(json.dumps(item, ensure_ascii=False, indent=1))
     print(f"[history] {item['id']}: {written} files built in {folder}", flush=True)
     return folder
+
+
+def build3d(folder: Path, web: Path) -> str | None:
+    """The 3D view of a past tropical cyclone, from ERA5, 3-hourly over the item's window (at most
+    32 frames, centred on the peak)."""
+    import hashlib
+    import era5
+    import numpy as np
+    from concurrent.futures import ThreadPoolExecutor
+    sys.path.insert(0, str(web))
+    import build3d as b3
+    path = folder / "item.json"
+    item = json.loads(path.read_text())
+    if b3.HAZARD not in (item.get("hazards") or []):
+        print(f"[3d] {item['id']}: not a tropical cyclone", flush=True)
+        return None
+    bbox, res, box = b3.box_for(item)
+    when = item["when"]
+    t0, t1 = b3.parse_time(when["start"]), b3.parse_time(when["end"])
+    peak = b3.parse_time(when.get("peak") or when["start"])
+    times = [t0 + 3 * k * b3.H for k in range(int((t1 - t0) / b3.H) // 3 + 1)]
+    if len(times) > b3.MAX_FRAMES:
+        i = max(0, min(len(times) - b3.MAX_FRAMES, min(range(len(times)), key=lambda k: abs(times[k] - peak)) - b3.MAX_FRAMES // 2))
+        times = times[i:i + b3.MAX_FRAMES]
+    key = hashlib.sha1(json.dumps([bbox, [b3.iso(t) for t in times], b3.FORMAT]).encode()).hexdigest()[:10]
+    rel = f"history/3d/{item['id']}-{key}"
+    out = web / rel
+    ix = np.rint((box["lons"] + 180) / 0.25).astype(int) % 1440
+    iy = np.clip(np.rint((90 - box["lats"]) / 0.25).astype(int), 0, 720)
+    cut = lambda a: a[np.ix_(iy, ix)]
+    print(f"[3d] {item['id']}: box {bbox} at {res} deg, {len(times)} frames {b3.iso(times[0])} to {b3.iso(times[-1])}", flush=True)
+
+    def frame(t):
+        tl, ql = era5.levels("t", t, b3.LEVELS), era5.levels("q", t, b3.LEVELS)
+        ul, vl = era5.levels("u", t, b3.WIND_LEVELS), era5.levels("v", t, b3.WIND_LEVELS)
+        return {"t": [cut(tl[l]) for l in b3.LEVELS],
+                "r": [cut(era5.relative_humidity(ql[l], tl[l], l)) for l in b3.LEVELS],
+                "uv": [cut(x[l]) for l in b3.WIND_LEVELS for x in (ul, vl)],
+                "uv10": [cut(era5.field("10u", t)), cut(era5.field("10v", t))],
+                "msl": cut(era5.field("msl", t)) / 100,
+                "rain": cut(era5.interval("tp", t, 3)) * 1000 / 3}
+
+    if not (out / "meta.json").exists():
+        with ThreadPoolExecutor(4) as ex:
+            frames = dict(enumerate(ex.map(frame, times)))
+        b3.write_bundle(item, out, bbox, res, box, times, frames, cut(era5.field("lsm", times[0])),
+                        {"source": "ERA5 reanalysis",
+                         "attribution": "Contains modified Copernicus Climate Change Service information. "
+                                        "ERA5: Hersbach et al. (2020). Regridded."})
+    for old in (web / "history" / "3d").glob(f"{item['id']}-*"):
+        if old.name != out.name:
+            import shutil as sh
+            sh.rmtree(old, ignore_errors=True)
+    item["view3d"] = rel
+    path.write_text(json.dumps(item, ensure_ascii=False, indent=1))
+    print(f"[3d] {item['id']}: {rel}", flush=True)
+    return rel
 
 
 def research(event_id: str, events: Path, out: Path) -> Path:
@@ -124,12 +186,17 @@ def main() -> None:
     r.add_argument("event")
     r.add_argument("--events", type=Path, required=True)
     r.add_argument("--out", type=Path, required=True)
+    d = sub.add_parser("build3d")
+    d.add_argument("folder", type=Path)
+    d.add_argument("--web", type=Path, required=True)
     v = sub.add_parser("review")
     v.add_argument("item", type=Path)
     v.add_argument("--run", type=Path)
     a = ap.parse_args()
     if a.cmd == "build":
         build(a.item, a.out)
+    elif a.cmd == "build3d":
+        build3d(a.folder, a.web)
     elif a.cmd == "research":
         research(a.event, a.events, a.out)
     else:
