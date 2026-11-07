@@ -237,6 +237,8 @@ def main() -> int:
         for v in {v for v in seen if v and seen.count(v) > 1}:
             warn(f"era5_vs_observed: two rows with the same {key} ({v[:60]!r})")
     for k, r in enumerate(rows):
+        if re.search(r"\b(ERA5|ERA-5|reanalys[ie]s)\b", r.get("observed", ""), re.IGNORECASE):
+            err(f"era5_vs_observed[{k}].observed: comes from ERA5 itself; the observed column needs a measurement or an independent analysis")
         if re.search(r"\b(anywhere|in the (event )?area|regional|domain)\b", r.get("quantity", "") + " " + r.get("era5", ""), re.IGNORECASE):
             warn(f"era5_vs_observed[{k}]: compare like with like (the same place in both columns)")
     for sid in ids:

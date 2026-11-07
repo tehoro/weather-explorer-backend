@@ -154,7 +154,8 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
   both. Never set ERA5's highest value anywhere against a measurement somewhere else, and never
   repeat a row. Include the central pressure, the stations with the strongest measured gusts (or
   rain), and one or two places people know. The `era5` cell comes from the scan; the
-  `observed` cell from a source. Each cell is short, under about 100 characters: the value, the
+  `observed` cell from a source: a measurement or an analysis made independently of ERA5 (never a
+  paper's ERA5 values, which would compare ERA5 with itself). Each cell is short, under about 100 characters: the value, the
   time and the place ("98 kn at 03:10 GMT; probably 100 kn later"). Caveats and explanations go in
   `reanalysis`, not in the table.
 - The forecast story (`history`) includes what forecasters and broadcasters said at the time,
