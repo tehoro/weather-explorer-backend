@@ -58,8 +58,9 @@ def _window(grid: "fields.Grid", lat: float, lon: float, km: float):
     dlat = km / 111.0
     dlon = km / (111.0 * max(0.2, math.cos(math.radians(lat))))
     rows = np.where(np.abs(grid.lats - lat) <= dlat)[0]
-    cols = np.where(np.abs((grid.lons - lon + 540) % 360 - 180) <= dlon)[0]
-    return rows, cols
+    east = (grid.lons - lon + 540) % 360 - 180          # degrees east of lon, across the date line
+    cols = np.where(np.abs(east) <= dlon)[0]
+    return rows, cols[np.argsort(east[cols])]            # west to east, so neighbours stay neighbours
 
 
 def _centre(vals: np.ndarray, grid: "fields.Grid", lat: float, lon: float, km: float) -> dict | None:
@@ -84,8 +85,8 @@ def _centre(vals: np.ndarray, grid: "fields.Grid", lat: float, lon: float, km: f
         return max(-0.5, min(0.5, 0.5 * (fm - fp) / d)) if d > 0 else 0.0
 
     oy, ox = offset(sub[i - 1, j], sub[i + 1, j]), offset(sub[i, j - 1], sub[i, j + 1])
-    dlat = grid.lats[rows[1]] - grid.lats[rows[0]]
-    dlon = grid.lons[cols[1]] - grid.lons[cols[0]]
+    dlat = grid.lats[1] - grid.lats[0]
+    dlon = grid.lons[1] - grid.lons[0]
     p = f0 - 0.25 * ((sub[i - 1, j] - sub[i + 1, j]) * oy + (sub[i, j - 1] - sub[i, j + 1]) * ox)
     return {"lat": float(lats[i, j] + oy * dlat), "lon": float(lons[i, j] + ox * dlon), "msl": float(p) / 100.0}
 

@@ -81,6 +81,13 @@ Rules for figures:
   whether the value was measured or estimated.
 - **Disagreement:** when sources disagree (a different highest gust, a different death toll), say
   so and give both.
+- **Maximums, with care:** the strongest wind or heaviest rain of an event is the highest
+  reported anywhere, not the value at the best-known station: search for it (exposed headlands,
+  hill sites, ships, signal stations), and never call one station's value the event's maximum
+  unless a source says so. Extreme readings are often doubtful (instruments failing, exposure,
+  a single gust on a hilltop): give them as reported, say who reported them and any doubt, and
+  set them beside the best-established figures. Prefer a careful range ("gusts of about 190-200
+  km/h in Wellington, with higher readings reported on exposed coasts") to one precise number.
 - **Corrections:** records are sometimes corrected or withdrawn later (a faulty instrument, a
   re-analysis of the data). For every record value you use, search for later corrections. Give
   the corrected value, say what changed and cite the source of the correction; if you find a
