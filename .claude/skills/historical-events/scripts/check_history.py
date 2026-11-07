@@ -294,6 +294,17 @@ def main() -> int:
                 last = t
                 if scan:
                     print(f"  {w} {c.get('at')}: {text}\n      ERA5: {scan_at(scan, t)}")
+    for k, st in enumerate(it.get("storms") or []):
+        w = f"storms[{k}]"
+        if not isinstance(st, dict) or not st.get("name"):
+            err(f"{w}: each {{name, at, near: [lat, lon]}}")
+            continue
+        t = time_of(st.get("at"), f"{w}.at")
+        near = st.get("near")
+        if not (isinstance(near, list) and len(near) == 2 and all(isinstance(x, (int, float)) for x in near) and -90 <= near[0] <= 90):
+            err(f"{w}.near: [lat, lon] of the storm's centre at its hour")
+        if t and scan and not (scan.get("lows") or {}).get(fields.iso(t)):
+            warn(f"{w}: the scan lists no low below 1000 hPa at {st['at']}")
     if set(hz) & {"rain", "flood"} and not any(sc.get("fill") == "raintotal" for sc in scenes):
         warn("rain or flood item without a raintotal scene: show the event total building up")
     if scan and ts.get("peak"):

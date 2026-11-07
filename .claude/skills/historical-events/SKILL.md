@@ -141,6 +141,11 @@ uncensored peak". Name places ("off Brittany", "near Shoreham"), never grid coor
 - `when.peak` is the hour of the worst impacts, within the scan window. The track the viewer
   draws starts from the deepest low inside `where.bbox` at that hour, so make sure the storm you are
   writing about is the deepest low in that box then (check `lows` in the scan).
+- **Two or more storms** in one item (for example two windstorms a day apart): name each with
+  `"storms": [{"name": "Lothar", "at": "1999-12-26T06:00Z", "near": [49.0, 2.3]}, ...]`, the hour
+  and a position (lat, lon, from the scan's `lows`) where that storm is the deepest low within
+  about 500 km. The viewer then draws each storm's track with its own moving marker and name, in
+  every scene whose window it falls in. Leave `storms` out for a single storm.
 - **Every** entry in `impacts`, `history`, `why_interesting` and `era5_vs_observed` cites at least
   one source, and every figure in its text is in one of those sources. Impacts cite at least one
   `official`, `peer-reviewed` or `archive` source (`statistics` alone is enough only for losses).

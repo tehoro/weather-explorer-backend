@@ -8,10 +8,11 @@ one ("Cyclone Gabrielle", "Hurricane Katrina", "Storm Ciarán").
 
 Each scene gets
 
-  "track": {"name": "Gabrielle" | null,
-            "points": [{"t": "2023-02-13T00:00Z", "lat": -35.12, "lon": 175.03, "msl": 968.4}, ...]}
+  "tracks": [{"name": "Gabrielle" | null,
+              "points": [{"t": "2023-02-13T00:00Z", "lat": -35.12, "lon": 175.03, "msl": 968.4}, ...]}, ...]
+  "track":  the first of them (viewers that draw one)
 
-for the scene's window. The viewer draws the line, glides a marker along it and blends the
+for the scene's window. An item about two storms (Lothar and Martin) names them in "storms". The viewer draws the line, glides a marker along it and blends the
 frames round the centre so the low moves rather than fades.
 
 Built once per scene (no per-request work). Any source works: msl_at(t) returns a global msl
@@ -140,37 +141,50 @@ def _smooth(track: list[dict]) -> list[dict]:
 
 
 def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1, times: list[datetime] | None = None) -> int:
-    """Track the item's main low over all its scenes' windows and give each scene its part, hourly
-    (step_hours) or at the given times. Returns the number of track points (0: no deep low found,
-    and no scene gets a track)."""
+    """Track the item's storms over all its scenes' windows and give each scene its part, hourly
+    (step_hours) or at the given times.
+
+    An item about more than one storm names them: "storms": [{"name": "Lothar", "at": "1999-12-26T06:00Z",
+    "near": [49.0, 2.3]}, ...], each the deepest low within about 500 km of `near` at hour `at`.
+    Otherwise there is one, the deepest low in where.bbox at when.peak, named from the title.
+    Each scene gets "tracks" (the storms seen in its window, at least 2 points each) and "track"
+    (the first, for viewers that draw only one). Returns the number of track points."""
     when, where = item.get("when") or {}, item.get("where") or {}
     windows = [(fields.parse_time(s["start"]), fields.parse_time(s["end"]))
                for s in item.get("scenes", []) if s.get("start") and s.get("end")]
     if not windows or not where.get("bbox") or not (when.get("peak") or when.get("start")):
         return 0
     t0, t1 = min(a for a, _ in windows), max(b for _, b in windows)
-    start = fields.parse_time(when.get("peak") or when["start"])
-    start = min(max(start.replace(minute=0, second=0, microsecond=0), t0), t1)
-    if times is not None:
-        if not times:
-            return 0
-        start = min(times, key=lambda t: abs((t - start).total_seconds()))
-    else:
+    if times is None:
         times = [t0 + k * step_hours * fields.H for k in range(int((t1 - t0) / fields.H) // step_hours + 1)]
-        if start not in times:
-            times = sorted(set(times) | {start})
-    points = follow(msl_at, times, start, where["bbox"])
-    if len(points) < MIN_POINTS:
-        points = []
-    name = storm_name(item.get("title", ""))
+    if not times:
+        return 0
+    storms = item.get("storms") or [{"name": storm_name(item.get("title", "")), "at": when.get("peak") or when["start"]}]
+    found = []
+    for st in storms:
+        at = min(max(fields.parse_time(st["at"]).replace(minute=0, second=0, microsecond=0), t0), t1)
+        at = min(times, key=lambda t: abs((t - at).total_seconds()))
+        near = st.get("near")
+        box = [near[1] - 6, near[0] - 4.5, near[1] + 6, near[0] + 4.5] if near else where["bbox"]
+        points = follow(msl_at, times, at, box)
+        if len(points) >= MIN_POINTS:
+            found.append((st.get("name"), points))
+    total = 0
     for scene, (a, b) in zip([s for s in item["scenes"] if s.get("start") and s.get("end")], windows):
-        pts = [{"t": fields.iso(p["t"]), "lat": round(p["lat"], 3), "lon": round(p["lon"], 3), "msl": round(p["msl"], 1)}
-               for p in points if a <= p["t"] <= b]
-        if len(pts) >= 2:
-            scene["track"] = {"name": name, "points": pts}
+        tracks = []
+        for name, points in found:
+            pts = [{"t": fields.iso(p["t"]), "lat": round(p["lat"], 3), "lon": round(p["lon"], 3), "msl": round(p["msl"], 1)}
+                   for p in points if a <= p["t"] <= b]
+            if len(pts) >= 2:
+                tracks.append({"name": name, "points": pts})
+        if tracks:
+            scene["tracks"], scene["track"] = tracks, tracks[0]
         else:
+            scene.pop("tracks", None)
             scene.pop("track", None)
-    return len(points)
+    for _, points in found:
+        total += len(points)
+    return total
 
 
 # --------------------------------------------------------------------------------------------
