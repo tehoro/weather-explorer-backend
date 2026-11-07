@@ -25,6 +25,7 @@ from pathlib import Path
 
 import fields
 import store
+import tracks
 
 DIR = store.FEED.parent.parent / "scenes"      # data/scenes
 KEEP = 2                                       # feeds whose scene files are kept
@@ -175,9 +176,29 @@ def build_items(items: list[dict], tag: str, source: str = "opendata", out_dir: 
                 scene["web_data" if polar else "data"] = files
             if "fill" in files:
                 align_captions(scene, _valid_times(out_dir / files["fill"].split("/", 1)[1]), item["id"], n)
+    if source == "opendata":
+        _add_tracks(items)
     if keep:
         store.save_scenes(out_dir)
     return written
+
+
+def _add_tracks(items: list[dict]) -> None:
+    """The main low's track for items about a storm (tracks.py), from the runs the frames use."""
+    try:
+        latest = fields.latest_run()
+    except Exception as e:
+        print(f"[scenes] tracks skipped: {e}", file=sys.stderr, flush=True)
+        return
+    msl_at = tracks.opendata_msl(latest)
+    for item in items:
+        if not tracks.wanted(item):
+            continue
+        try:
+            n = tracks.add_to_scenes(item, msl_at, times=tracks.opendata_times(item, latest))
+            print(f"[scenes] {item['id']}: track of {n} points", flush=True)
+        except Exception as e:
+            print(f"[scenes] {item['id']}: no track ({type(e).__name__}: {e})", file=sys.stderr, flush=True)
 
 
 def _valid_times(path: Path) -> list[str]:

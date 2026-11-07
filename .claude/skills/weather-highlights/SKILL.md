@@ -167,7 +167,11 @@ Aim for fifteen (minimum five, maximum eighteen). Prefer:
    scene: the rain since the scene began, building up frame by frame, from the short-range steps
    of recent runs (up to 3 days back) and then the forecast. Start it when the rain sets in and
    end it when the rain stops (up to 5 days), so the last frame is the event total; say in the
-   captions which part has fallen and which is forecast.
+   captions which part has fallen and which is forecast. Model totals are averages over grid
+   squares 9-25 km across: hills, coasts and thunderstorms can give far more in places (and
+   less elsewhere), so the text says so where totals matter, and points to the official warnings
+   for what to expect locally. Captions stay free of caveats; put this in the summary or
+   confidence.
 
 Collapse duplicates (a typhoon's rain, wind and low signals are one highlight), and neighbours
 with one cause (rain on the Pacific slopes of two neighbouring countries in the same flow is one

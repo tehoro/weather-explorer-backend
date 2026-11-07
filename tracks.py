@@ -15,10 +15,14 @@ for the scene's window. The viewer draws the line, glides a marker along it and 
 frames round the centre so the low moves rather than fades.
 
 Built once per scene (no per-request work). Any source works: msl_at(t) returns a global msl
-field (Pa) on a fields.Grid. Historical items use ERA5 (hourly); live items could use Open Data.
+field (Pa) on a fields.Grid, or None where there is none. Historical items use ERA5 (hourly). Live
+highlights about a storm (wanted()) use Open Data at the frames' 3-hourly (later 6-hourly) times,
+from the same runs as the frames (opendata_msl, opendata_times); an item can opt out with
+"track": false when the deepest low in its box at its peak is not its storm.
 """
 from __future__ import annotations
 
+import functools
 import math
 import re
 from datetime import datetime
@@ -31,9 +35,11 @@ import fields
 MAX_SPEED_KMH = 160      # fastest a low's centre is followed (the 1987 storm reached about 130 km/h)
 FIND_KM = 250            # search radius round the predicted position, beyond the expected move
 DEEP_HPA = 1000          # a centre shallower than this ends the track
+MIN_POINTS = 4           # a shorter track is more likely a passing wobble than the storm
 NAME = re.compile(r"\b(?:Super Typhoon|Typhoon|Hurricane|Cyclone|Tropical Storm|Storm|Medicane)\s+([A-Z][a-zà-ÿ]+)")
 
-FieldAt = Callable[[datetime], tuple[np.ndarray, "fields.Grid"]]
+FieldAt = Callable[[datetime], "tuple[np.ndarray, fields.Grid] | None"]
+STORMS = {"tropical-cyclone", "wind", "rain", "flood", "coastal", "snow"}   # hazards a live item's low may be the story of
 
 
 def storm_name(title: str) -> str | None:
@@ -87,7 +93,9 @@ def _centre(vals: np.ndarray, grid: "fields.Grid", lat: float, lon: float, km: f
 def follow(msl_at: FieldAt, times: list[datetime], start: datetime, bbox: list[float]) -> list[dict]:
     """The deepest low in bbox ([w, s, e, n]) at `start`, followed through `times` (sorted)."""
     w, s, e, n = bbox
-    vals, grid = msl_at(start)
+    if (got := msl_at(start)) is None:
+        return []
+    vals, grid = got
     rows = np.where((grid.lats >= s) & (grid.lats <= n))[0]
     cols = np.where(((grid.lons - w) % 360) <= ((e - w) % 360 or 360))[0]
     sub = vals[np.ix_(rows, cols)]
@@ -103,7 +111,10 @@ def follow(msl_at: FieldAt, times: list[datetime], start: datetime, bbox: list[f
         for t in seq:
             hours = abs((t - prev["t"]).total_seconds()) / 3600
             guess_lat, guess_lon = prev["lat"] + vel[0] * hours, prev["lon"] + vel[1] * hours
-            c = _centre(msl_at(t)[0], grid, guess_lat, guess_lon, FIND_KM + MAX_SPEED_KMH * hours * 0.5)
+            field = msl_at(t)
+            if field is None:
+                break
+            c = _centre(field[0], grid, guess_lat, guess_lon, FIND_KM + MAX_SPEED_KMH * hours * 0.5)
             if not c or c["msl"] > DEEP_HPA or _km(prev["lat"], prev["lon"], c["lat"], c["lon"]) > MAX_SPEED_KMH * hours:
                 break
             c["t"] = t
@@ -127,9 +138,10 @@ def _smooth(track: list[dict]) -> list[dict]:
     return out
 
 
-def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1) -> int:
-    """Track the item's main low over all its scenes' windows and give each scene its part.
-    Returns the number of track points (0: no deep low found, and no scene gets a track)."""
+def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1, times: list[datetime] | None = None) -> int:
+    """Track the item's main low over all its scenes' windows and give each scene its part, hourly
+    (step_hours) or at the given times. Returns the number of track points (0: no deep low found,
+    and no scene gets a track)."""
     when, where = item.get("when") or {}, item.get("where") or {}
     windows = [(fields.parse_time(s["start"]), fields.parse_time(s["end"]))
                for s in item.get("scenes", []) if s.get("start") and s.get("end")]
@@ -138,10 +150,17 @@ def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1) -> int:
     t0, t1 = min(a for a, _ in windows), max(b for _, b in windows)
     start = fields.parse_time(when.get("peak") or when["start"])
     start = min(max(start.replace(minute=0, second=0, microsecond=0), t0), t1)
-    times = [t0 + k * step_hours * fields.H for k in range(int((t1 - t0) / fields.H) // step_hours + 1)]
-    if start not in times:
-        times = sorted(set(times) | {start})
+    if times is not None:
+        if not times:
+            return 0
+        start = min(times, key=lambda t: abs((t - start).total_seconds()))
+    else:
+        times = [t0 + k * step_hours * fields.H for k in range(int((t1 - t0) / fields.H) // step_hours + 1)]
+        if start not in times:
+            times = sorted(set(times) | {start})
     points = follow(msl_at, times, start, where["bbox"])
+    if len(points) < MIN_POINTS:
+        points = []
     name = storm_name(item.get("title", ""))
     for scene, (a, b) in zip([s for s in item["scenes"] if s.get("start") and s.get("end")], windows):
         pts = [{"t": fields.iso(p["t"]), "lat": round(p["lat"], 3), "lon": round(p["lon"], 3), "msl": round(p["msl"], 1)}
@@ -151,3 +170,38 @@ def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1) -> int:
         else:
             scene.pop("track", None)
     return len(points)
+
+
+# --------------------------------------------------------------------------------------------
+# Live highlights (Open Data)
+# --------------------------------------------------------------------------------------------
+
+def wanted(item: dict) -> bool:
+    """A live item about a storm, shown with isobars: not an explainer, and not opted out."""
+    if item.get("track") is False or item.get("kind") == "explainer":
+        return False
+    return bool(set(item.get("hazards") or []) & STORMS) and any(
+        "mslp" in (s.get("fill"), s.get("contours")) for s in item.get("scenes", []))
+
+
+def opendata_times(item: dict, latest: datetime) -> list[datetime]:
+    """The frame times (3-hourly, 6-hourly beyond +144 h) over the item's scenes, within what Open
+    Data still holds."""
+    windows = [(fields.parse_time(s["start"]), fields.parse_time(s["end"]))
+               for s in item.get("scenes", []) if s.get("start") and s.get("end")]
+    if not windows:
+        return []
+    t0 = max(min(a for a, _ in windows), latest - 72 * fields.H)
+    t1 = min(max(b for _, b in windows), latest + 360 * fields.H)
+    return fields.frame_times(t0, t1, latest, 10_000) if t0 <= t1 else []
+
+
+def opendata_msl(latest: datetime) -> FieldAt:
+    """msl at valid time t from the run the frames use (fields.pick_source), 0.25 deg; a few
+    decoded fields are kept, since a track is followed forwards and backwards from its peak."""
+    @functools.lru_cache(maxsize=8)
+    def at(t: datetime):
+        src = fields.pick_source(t, latest, False)
+        path = fields.oper_field(src[0], "0p25", "msl", src[1], None) if src else None
+        return fields.read_one(path) if path else None
+    return at

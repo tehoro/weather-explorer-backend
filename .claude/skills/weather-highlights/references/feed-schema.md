@@ -127,7 +127,13 @@ setting → hazard → why the forecast system flags it.
 - Boxes reaching past 75°N or 75°S are drawn on a polar grid centred on the pole, so the pole
   itself is covered. For a hemispheric polar view use a box such as `[-180, 40, 180, 90]`.
 - Playback speed is the viewer's choice in the app (default 1 frame per second); scenes don't set it.
-- `focus`: up to 5 labelled points to mark (cities, the storm centre at peak).
+- `focus`: up to 5 labelled points to mark (cities, places named in the text). Not the storm
+  centre: for items about a storm (hazards `tropical-cyclone`, `wind`, `rain`, `flood`, `coastal`
+  or `snow`, with an `mslp` scene), the scene build tracks the deepest low inside `where.bbox` at
+  `when.peak` and the viewer draws its track, with a marker that moves along it showing the central
+  pressure (and the name from a title such as "Typhoon Fung-wong"). So set `where.bbox` and
+  `when.peak` to frame your storm; if the deepest low there at that time is not the story, add
+  `"track": false` to the item.
 - `captions`: up to 6 short narration lines. Each shows from its `at` until the next caption, or
   until its optional `until` if that is sooner; the last one stays to the end of the scene. Every
   `at` must be a frame time (see the skill: 3-hourly to +144 h, then 6-hourly, thinned to an even
