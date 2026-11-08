@@ -36,6 +36,9 @@ import fields
 MAX_SPEED_KMH = 160      # fastest a low's centre is followed (the 1987 storm reached about 130 km/h)
 FIND_KM = 250            # search radius round the predicted position, beyond the expected move
 DEEP_HPA = 1000          # a centre shallower than this ends the track
+WEAK_MAX_HPA = 1012      # weak lows (tropical storms, or a storm the item points at with "near"): a centre up to
+WEAK_DEPTH_HPA = 1.0     # this deep is kept while it is this much below the lowest pressure about 300 km out
+WEAK_RING_KM = (250, 350)
 MIN_POINTS = 4           # a shorter track is more likely a passing wobble than the storm
 NAME = re.compile(r"\b(?:Super Typhoon|Typhoon|Hurricane|Cyclone|Tropical Storm|Storm|Medicane)\s+([A-Z][a-zà-ÿ]+)")
 
@@ -92,8 +95,32 @@ def _centre(vals: np.ndarray, grid: "fields.Grid", lat: float, lon: float, km: f
     return {"lat": float(lats[i, j] + oy * dlat), "lon": float(lons[i, j] + ox * dlon), "msl": float(p) / 100.0}
 
 
-def follow(msl_at: FieldAt, times: list[datetime], start: datetime, bbox: list[float]) -> list[dict]:
-    """The deepest low in bbox ([w, s, e, n]) at `start`, followed through `times` (sorted)."""
+def _depth(vals: np.ndarray, grid: "fields.Grid", c: dict) -> float:
+    """How far (hPa) the centre lies below the lowest pressure on a ring about 300 km out: about the
+    depth of its outermost closed isobar."""
+    r0, r1 = WEAK_RING_KM
+    rows, cols = _window(grid, c["lat"], c["lon"], r1)
+    if not len(rows) or not len(cols):
+        return 0.0
+    lats, lons = np.meshgrid(grid.lats[rows], grid.lons[cols], indexing="ij")
+    dist = np.vectorize(lambda a, b: _km(c["lat"], c["lon"], a, b))(lats, lons)
+    ring = vals[np.ix_(rows, cols)][(dist >= r0) & (dist <= r1)]
+    return float(ring.min()) / 100.0 - c["msl"] if ring.size else 0.0
+
+
+def _low(vals: np.ndarray, grid: "fields.Grid", c: dict | None, weak: bool) -> bool:
+    """Is c a low worth following: deep enough, or (weak) a shallow but closed one."""
+    if not c:
+        return False
+    if c["msl"] <= DEEP_HPA:
+        return True
+    return weak and c["msl"] <= WEAK_MAX_HPA and _depth(vals, grid, c) >= WEAK_DEPTH_HPA
+
+
+def follow(msl_at: FieldAt, times: list[datetime], start: datetime, bbox: list[float],
+           weak: bool = False) -> list[dict]:
+    """The deepest low in bbox ([w, s, e, n]) at `start`, followed through `times` (sorted). With
+    weak, shallow lows count too while they stay closed (_low)."""
     w, s, e, n = bbox
     if (got := msl_at(start)) is None:
         return []
@@ -103,7 +130,7 @@ def follow(msl_at: FieldAt, times: list[datetime], start: datetime, bbox: list[f
     sub = vals[np.ix_(rows, cols)]
     i, j = np.unravel_index(np.argmin(sub), sub.shape)
     first = _centre(vals, grid, float(grid.lats[rows[i]]), float(grid.lons[cols[j]]), 150)
-    if not first or first["msl"] > DEEP_HPA:
+    if not _low(vals, grid, first, weak):
         return []
     first["t"] = start
     track = [first]
@@ -117,7 +144,7 @@ def follow(msl_at: FieldAt, times: list[datetime], start: datetime, bbox: list[f
             if field is None:
                 break
             c = _centre(field[0], grid, guess_lat, guess_lon, FIND_KM + MAX_SPEED_KMH * hours * 0.5)
-            if not c or c["msl"] > DEEP_HPA or _km(prev["lat"], prev["lon"], c["lat"], c["lon"]) > MAX_SPEED_KMH * hours:
+            if not _low(field[0], grid, c, weak) or _km(prev["lat"], prev["lon"], c["lat"], c["lon"]) > MAX_SPEED_KMH * hours:
                 break
             c["t"] = t
             vel = ((c["lat"] - prev["lat"]) / hours, ((c["lon"] - prev["lon"] + 540) % 360 - 180) / hours)
@@ -140,6 +167,12 @@ def _smooth(track: list[dict]) -> list[dict]:
     return out
 
 
+def _same(a: list[dict], b: list[dict], km: float = 200) -> bool:
+    """Do two tracks follow the same low (centres within km at a time both have)?"""
+    at = {p["t"]: p for p in b}
+    return any(_km(p["lat"], p["lon"], at[p["t"]]["lat"], at[p["t"]]["lon"]) <= km for p in a if p["t"] in at)
+
+
 def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1, times: list[datetime] | None = None) -> int:
     """Track the item's storms over all its scenes' windows and give each scene its part, hourly
     (step_hours) or at the given times.
@@ -147,6 +180,7 @@ def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1, times: list[
     An item about more than one storm names them: "storms": [{"name": "Lothar", "at": "1999-12-26T06:00Z",
     "near": [49.0, 2.3]}, ...], each the deepest low within about 500 km of `near` at hour `at`.
     Otherwise there is one, the deepest low in where.bbox at when.peak, named from the title.
+    Tropical cyclones and storms given by "near" may be weak lows (follow(weak=True)).
     Each scene gets "tracks" (the storms seen in its window, at least 2 points each) and "track"
     (the first, for viewers that draw only one). Returns the number of track points."""
     when, where = item.get("when") or {}, item.get("where") or {}
@@ -166,10 +200,16 @@ def add_to_scenes(item: dict, msl_at: FieldAt, step_hours: int = 1, times: list[
         at = min(times, key=lambda t: abs((t - at).total_seconds()))
         near = st.get("near")
         box = [near[1] - 6, near[0] - 4.5, near[1] + 6, near[0] + 4.5] if near else where["bbox"]
-        points = follow(msl_at, times, at, box)
+        weak = bool(near) or "tropical-cyclone" in (item.get("hazards") or [])
+        points = follow(msl_at, times, at, box, weak)
+        if any(_same(points, other) for _, other in found):
+            continue                             # two "storms" that turn out to be one low
         if len(points) >= MIN_POINTS:
             found.append((st.get("name"), points))
     total = 0
+    for scene in item.get("scenes", []):          # never keep a track built for an earlier run
+        scene.pop("tracks", None)
+        scene.pop("track", None)
     for scene, (a, b) in zip([s for s in item["scenes"] if s.get("start") and s.get("end")], windows):
         tracks = []
         for name, points in found:

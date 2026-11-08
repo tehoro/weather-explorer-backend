@@ -373,6 +373,12 @@ strongest rain or wind touches its edge) and enough around it to make sense: whe
 from, and a coast or place people know. A box of a few hundred kilometres of open ocean or ice
 shows a colour and nothing else. Add `hints_3d` with a cross-section line and camera idea for the Vision Pro.
 
+Storm tracks are drawn for items about a storm with an `mslp` scene (feed schema, `focus`). For a
+named or weak tropical system, a box with several lows, or a storm that is not the deepest low in
+the box at `when.peak`, give `storms` with its centre (`near`) at a frame time, from the agency's
+advisory or the scan's `lows`. Use `"track": false` only when no low is the story, and never copy
+`track`/`tracks` from the previous feed: they are rebuilt from the newest run.
+
 Captions:
 - **On a frame.** Frames are 3-hourly to +144 h, then 6-hourly; long windows are thinned to an
   even 6, 12 or 24 h on 00/12 UTC. A caption shows from its time until the next caption, so one

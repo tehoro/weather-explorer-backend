@@ -132,8 +132,14 @@ setting → hazard → why the forecast system flags it.
   or `snow`, with an `mslp` scene), the scene build tracks the deepest low inside `where.bbox` at
   `when.peak` and the viewer draws its track, with a marker that moves along it showing the central
   pressure (and the name from a title such as "Typhoon Fung-wong"). So set `where.bbox` and
-  `when.peak` to frame your storm; if the deepest low there at that time is not the story, add
-  `"track": false` to the item.
+  `when.peak` to frame your storm. When the deepest low there at that time may not be your storm
+  (a large box, several lows, a weak or named tropical system), point at it instead:
+  `"storms": [{"name": "Pena", "at": "2026-11-09T00:00Z", "near": [11.8, -158.0]}]`, its centre at
+  a frame time from the agency's advisory or the scan's `lows`; up to 3 storms, each followed
+  from the lowest pressure within about 500 km of `near`. Tropical storms and storms given this
+  way are followed while they stay closed lows, however shallow (up to 1012 hPa). Add
+  `"track": false` only when no low is the story. Don't copy `track` or `tracks` from an earlier
+  feed: tracks are rebuilt from the newest run after publishing, and the publisher drops them.
 - `captions`: up to 6 short narration lines. Each shows from its `at` until the next caption, or
   until its optional `until` if that is sooner; the last one stays to the end of the scene. Every
   `at` must be a frame time (see the skill: 3-hourly to +144 h, then 6-hourly, thinned to an even

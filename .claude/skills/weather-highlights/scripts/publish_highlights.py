@@ -256,6 +256,40 @@ def near(a: list, b: list, gap: float = 1.0) -> bool:
     return any(bw + k <= ae + gap and aw <= be + k + gap for k in (-360, 0, 360))
 
 
+def check_storms(it: dict, w: str, errors: list, warnings: list) -> None:
+    """The storms the scene build tracks (tracks.py): "storms" [{name, at, near}] or the deepest low
+    in where.bbox at when.peak. Tracks are built after publishing, so any in a draft (copied from the
+    previous feed) are dropped here."""
+    for sc in it.get("scenes", []):
+        sc.pop("track", None)
+        sc.pop("tracks", None)
+    storms = it.get("storms")
+    if storms is None:
+        if "tropical-cyclone" in (it.get("hazards") or []) and it.get("track") is not False:
+            warnings.append(f"{w}: a tropical cyclone with no storms: the track follows the deepest low in where.bbox "
+                            "at when.peak; give \"storms\": [{\"name\", \"at\", \"near\"}] at the agency's position "
+                            "so it follows this one")
+        return
+    if it.get("track") is False:
+        errors.append(f"{w}: give either storms (to track them) or \"track\": false (no track), not both")
+    if not (isinstance(storms, list) and 1 <= len(storms) <= 3):
+        errors.append(f"{w}.storms: a list of 1-3 storms, each {{\"name\": \"Pena\" or null, \"at\": time, \"near\": [lat, lon]}}")
+        return
+    for j, st in enumerate(storms):
+        sw = f"{w}.storms[{j}]"
+        if not isinstance(st, dict):
+            errors.append(f"{sw}: must be an object")
+            continue
+        t(st.get("at", ""), f"{sw}.at", errors)
+        near = st.get("near")
+        if not (isinstance(near, list) and len(near) == 2 and all(isinstance(x, (int, float)) for x in near)
+                and -90 <= near[0] <= 90):
+            errors.append(f"{sw}: near must be [lat, lon], the centre at `at` (from the agency or the scan's lows)")
+        name = st.get("name")
+        if name is not None and not (isinstance(name, str) and 1 <= len(name) <= 30):
+            errors.append(f"{sw}: name is the storm's name (e.g. 'Pena') or null")
+
+
 def check_explainers(items: list, errors: list) -> None:
     """Each explainer shows something new: not a topic from the last sweeps, not a place a highlight covers."""
     shown = explainers.recent()
@@ -320,6 +354,7 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
                           "knows, e.g. 'Bulgaria', 'India', 'North Pacific'. The viewer shows it before the title")
         for k in ("start", "end"):
             t(it.get("when", {}).get(k, ""), f"{w}.when.{k}", errors)
+        check_storms(it, w, errors, warnings)
         for k, text in public_texts(it):
             m = PROCESS.search(text)
             if m:

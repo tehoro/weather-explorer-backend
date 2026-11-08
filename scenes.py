@@ -185,6 +185,10 @@ def build_items(items: list[dict], tag: str, source: str = "opendata", out_dir: 
 
 def _add_tracks(items: list[dict]) -> None:
     """The main low's track for items about a storm (tracks.py), from the runs the frames use."""
+    for item in items:                            # an item carried over from an earlier feed brings its
+        for scene in item.get("scenes", []):      # old track; only a track built now is shown
+            scene.pop("tracks", None)
+            scene.pop("track", None)
     try:
         latest = fields.latest_run()
     except Exception as e:
