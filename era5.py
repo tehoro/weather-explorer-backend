@@ -61,6 +61,7 @@ VARIABLES = {
     "q": "specific_humidity",
     "lsm": "land_sea_mask",
     "zs": "geopotential_at_surface",   # the model's terrain (m2/s2; divide by G for metres)
+    "swh": "significant_height_of_combined_wind_waves_and_swell",   # m; missing over land
 }
 PRESSURE = {"u", "v", "t", "gh", "q"}
 LEVELS = [1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500,

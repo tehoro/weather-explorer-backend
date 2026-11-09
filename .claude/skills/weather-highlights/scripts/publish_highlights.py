@@ -437,8 +437,8 @@ def validate(feed: dict, sweep: bool = True) -> tuple[list[str], list[str]]:
             sw = f"{w}.scenes[{j}]"
             # Layers with app_ready=False are drawn by the web viewer only; the iPhone app is not
             # kept up to date (since Nov 2026), so they are allowed.
-            if sc.get("fill") not in fields.LAYERS:
-                errors.append(f"{sw}: fill {sc.get('fill')!r}; use one of {sorted(fields.LAYERS)}")
+            if sc.get("fill") not in fields.LAYERS or fields.LAYERS[sc["fill"]].era5_only:
+                errors.append(f"{sw}: fill {sc.get('fill')!r}; use one of {sorted(k for k, l in fields.LAYERS.items() if not l.era5_only)}")
             if sc.get("contours") not in (None, *CONTOUR_LAYERS):
                 errors.append(f"{sw}: contours must be one of {sorted(CONTOUR_LAYERS)} or omitted")
             vectors_ok = sorted(VECTOR_LAYERS)

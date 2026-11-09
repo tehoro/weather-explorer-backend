@@ -74,6 +74,7 @@ class Layer:
                                       # highlights (the current iPhone app can't rebuild it itself)
     window_h: int = 0                 # accumulated over this many hours ending at the valid time
     running: bool = False             # accumulated from the scene's first frame (each frame adds the time since the last)
+    era5_only: bool = False           # from ERA5 only (past events): not in the Open Data files the live scenes read
                                       # (rain24), instead of over the interval since the last step
 
 
@@ -119,6 +120,14 @@ LAYERS: dict[str, Layer] = {l.id: l for l in [
           needs_interval=True, accumulated=True, running=True, app_ready=False,
           description="Precipitation accumulated from the start of the scene to each frame: the event total building up, "
                       "from analyses and then the forecast (or the reanalysis for past events)."),
+    # November 2026, past events only (ERA5's wave model; Open Data's wave files are not read yet):
+    # banded colours that change at each metre or two, plus labelled contours every 2 m, so the
+    # heights can be read straight off the map.
+    Layer("swh", "Significant wave height", "m", ["swh"],
+          [(0, "#0b2a4a55"), (1, "#1f5fa0aa"), (2, "#2c8fc9cc"), (3, "#3fc1c9dd"), (4, "#7fd38aee"),
+           (5, "#e8e25aee"), (6, "#f7b13cf2"), (8, "#ee6a2cf5"), (10, "#d6283cf8"), (12, "#a8127aff"), (15, "#f2d0ffff")],
+          contour_interval=2, app_ready=False, era5_only=True,
+          description="Significant wave height (wind waves and swell, the mean height of the highest third of the waves), from ERA5's wave model on a 0.5 degree grid. Individual waves can be about twice as high."),
     Layer("tcwv", "Total column water vapour", "kg/m²", ["tcwv"],
           [(15, T), (25, "#c7e9c066"), (35, "#74c476aa"), (45, "#fed976cc"), (55, "#fd8d3cdd"), (65, "#e31a1cee"), (75, "#7a0177ff")],
           description="Moisture plumes: atmospheric rivers and tropical moisture."),

@@ -175,7 +175,7 @@ from ERA5 for its own box and window:
 | Event | Scene 1 | Scene 2 | Scene 3 |
 |---|---|---|---|
 | Windstorm (extratropical) | `mslp` fill + `mslp` contours + `wind10` vectors: the low from formation to decay, ocean-basin box | `gust` fill + `mslp` contours + `wind10` vectors: the worst hours, 10-20° box on the land hit | `olr` fill + `mslp` contours: the cloud head and dry slot |
-| Tropical cyclone | `tcwv` or `olr` fill + `mslp` contours: the track across the basin | `wind10` fill + `mslp` contours + `wind10` vectors: landfall, 10-15° box | `raintotal` fill + `mslp` contours: the rain total building up (when rain or floods matter) |
+| Tropical cyclone | `tcwv` or `olr` fill + `mslp` contours: the track across the basin | `wind10` fill + `mslp` contours + `wind10` vectors: landfall, 10-15° box | `raintotal` fill + `mslp` contours: the rain total building up (when rain or floods matter); a fourth scene of `swh` (seas) when the coast was battered |
 | Rain and floods (including ex-tropical cyclones) | `tcwv` fill + `mslp` contours + `wind850` vectors: the moisture plume | `raintotal` fill + `mslp` contours: the event total building up over 2-4 days, on the flooded areas | `precip` fill: where and when it rained hardest |
 | Snow, cold | `t850` fill + `mslp` contours | `ptype` fill + `mslp` contours | `wind10` fill + vectors |
 
@@ -189,7 +189,13 @@ Each scene:
 ```
 
 - Layers: `mslp`, `wind10`, `gust`, `t2m`, `precip`, `rain24`, `raintotal`, `tcwv`, `jet250`, `z500`,
-  `wind850`, `t850`, `cape`, `olr`, `ptype`. Vectors: `wind10`, `wind850`, `jet250`. Contours: `mslp`, `z500`.
+  `wind850`, `t850`, `cape`, `olr`, `ptype`, `swh`. Vectors: `wind10`, `wind850`, `jet250`. Contours: `mslp`, `z500`.
+- **Waves.** For a tropical cyclone or a storm at sea that reached a coast, consider a scene of
+  `swh`: significant wave height (m) from ERA5's wave model, the mean height of the highest third
+  of the waves. Give it no `contours`: it draws its own labelled height contours every 2 m, and the
+  storm's track still shows. Captions give heights where they matter ("Seas near 10 m south of
+  Upolu"); individual waves can be about twice the significant height, and ERA5 has no storm
+  surge or tides, so coastal flooding is described from sources, not from this map.
 - **Rain.** When rain or flooding is the story, one scene shows `raintotal`: the rain since the
   scene began, building up frame by frame. Start it just before the rain sets in and end it after
   the rain stops (up to 4 days), so the last frame is the event total; compare that with the

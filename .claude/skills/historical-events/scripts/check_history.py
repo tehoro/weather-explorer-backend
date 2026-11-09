@@ -254,6 +254,8 @@ def main() -> int:
         text_ok(sc.get("title"), f"{w}.title")
         if sc.get("fill") not in LAYERS:
             err(f"{w}.fill: one of {', '.join(sorted(LAYERS))}")
+        if sc.get("fill") == "swh" and sc.get("contours"):
+            warn(f"{w}: an swh scene draws its own wave-height contours; leave out contours")
         if sc.get("contours") and sc["contours"] not in CONTOURS:
             err(f"{w}.contours: one of {', '.join(sorted(CONTOURS))}")
         if sc.get("vectors") and sc["vectors"] not in VECTORS:
