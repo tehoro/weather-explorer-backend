@@ -72,7 +72,7 @@ Terms used across the Weather Explorer code and documentation (this backend and 
 |---|---|
 | **Highlight** | One interesting weather situation in the feed, with evidence and one to four scenes. |
 | **Scene** | One animated view: a fill layer, optional contours and arrows, a box and a time window, with captions. |
-| **Sweep** | The twice-daily research run that produces a new feed. |
+| **Sweep** | The daily research run that produces a new feed. |
 | **Agent** | An AI model that works through a task in steps, using tools (running scripts, searching the web) rather than answering once. |
 | **Skill** | A folder with written instructions, references and scripts that an agent follows (here `.claude/skills/weather-highlights/`). |
 | **Validator** | Ordinary code (`publish_highlights.py`) that checks the agent's output and refuses to publish an invalid feed. |

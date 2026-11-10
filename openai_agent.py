@@ -27,7 +27,7 @@ is never retried, and a run left unfinished by a restart is resumed rather than 
 Environment:
   OPENAI_API_KEY               the key (never uploaded to the sandbox)
   WEATHER_OPENAI_MODEL         default gpt-6.1-sol
-  WEATHER_OPENAI_EFFORT        default xhigh
+  WEATHER_OPENAI_EFFORT        default high (xhigh until 11 Nov 2026: about US$3.30 a sweep)
   WEATHER_OPENAI_MINUTES       wall-clock limit per sweep, default 60 (a request: 30)
   WEATHER_OPENAI_RUNS_PER_DAY  sweeps a day, default 4
 """
@@ -61,7 +61,7 @@ ARTIFACT_SUFFIXES = {".json", ".txt", ".log", ".md", ".csv", ".html", ".xml", ".
 MAX_FILE, MAX_TOTAL = 20_000_000, 150_000_000
 
 MODEL = os.environ.get("WEATHER_OPENAI_MODEL", "gpt-6.1-sol")
-EFFORT = os.environ.get("WEATHER_OPENAI_EFFORT", "xhigh")
+EFFORT = os.environ.get("WEATHER_OPENAI_EFFORT", "high")
 MINUTES = float(os.environ.get("WEATHER_OPENAI_MINUTES", "60"))
 RUNS_PER_DAY = int(os.environ.get("WEATHER_OPENAI_RUNS_PER_DAY", "4"))
 REQUEST_MINUTES = 30

@@ -14,7 +14,7 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[4]
 FEED = BACKEND / "data" / "highlights" / "latest.json"
 HISTORY = FEED.parent / "explainer_history.json"
-REPEAT_SWEEPS = 2                                   # a topic rests this long: a day at two sweeps a day
+REPEAT_SWEEPS = 2                                   # a topic rests this long: two days at one sweep a day
 KEEP_SWEEPS = 8
 SAME_SWEEP = timedelta(hours=3)                    # a republish within this is the same sweep
 

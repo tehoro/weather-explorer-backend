@@ -1,7 +1,7 @@
 # Weather Explorer: backend
 
 The server half of **Weather Explorer**, a prototype for exploring animated ECMWF weather
-forecasts. Twice a day an AI research agent picks about fifteen interesting weather situations
+forecasts. Once a day an AI research agent picks about fifteen interesting weather situations
 around the world ("highlights"), backs each one with evidence, and describes how to show it. This
 backend runs that research, prepares the data for each animation, and serves the result as a JSON
 feed.
@@ -53,8 +53,8 @@ The rules Neil set are worth knowing because they explain much of the design:
   version did per-request work on a 0.5 vCPU server and froze.)
 - **Honest sourcing.** Model output is guidance, not a warning. Official warnings belong to
   national weather services, and the feed cites them.
-- **Low running cost.** It runs on a small Replit virtual machine, and each research sweep costs
-  about US$1.35–1.70 in AI model usage.
+- **Low running cost.** It runs on a small Replit virtual machine, and the daily research sweep costs
+  a few US dollars in AI model usage.
 
 ## Important caveats
 
@@ -98,14 +98,14 @@ don't hammer their servers: the code fetches only what it needs, and so should a
                    │ check_scenes.py  checks each caption against the frames the viewer will show          │
                    │ publish_highlights.py  validates the feed (schema, links, times) before publishing   │
                    │ scenes.py        cuts Open Data to each scene's box and time window (gzipped JSON)    │
-                   │ server.py        serves the feed and scene files; schedules sweeps at 10 and 22 UTC   │
+                   │ server.py        serves the feed and scene files; schedules the sweep at 22 UTC      │
                    └───────────────┬──────────────────────────────────────────────┬────────────────────────┘
                                    │ web_notify.py: "new highlights"              │ /api/highlights, /scenes
                                    ▼                                              ▼
                    web viewer repository (GitHub Actions → GitHub Pages)      iPhone app
 ```
 
-1. **Sweep.** At 10 and 22 UTC, just after each 00 or 12 UTC forecast run is complete on Open Data, the
+1. **Sweep.** At 22 UTC, just after the 12 UTC forecast run is complete on Open Data, the
    server starts a sweep. The AI agent follows a written procedure, the *skill* in
    [`.claude/skills/weather-highlights/SKILL.md`](.claude/skills/weather-highlights/SKILL.md):
    - run an objective scan of the latest forecast fields
@@ -214,8 +214,8 @@ Set as environment variables (secrets as host secrets, never in the code):
 | `OPENAI_API_KEY` | OpenAI, for the OpenAI route. |
 | `WEATHER_AGENT_PROVIDER` | `claude` (default) or `openai`. |
 | `WEATHER_REFRESH_MODEL` | Claude model for the sweep (see `agent.py`). |
-| `WEATHER_OPENAI_MODEL`, `WEATHER_OPENAI_EFFORT`, `WEATHER_OPENAI_MINUTES`, `WEATHER_OPENAI_RUNS_PER_DAY` | OpenAI model, effort, time limit and daily cap. |
-| `SWEEP_HOURS_UTC` | Sweep hours, e.g. `10,22`. Empty disables sweeps. |
+| `WEATHER_OPENAI_MODEL`, `WEATHER_OPENAI_EFFORT`, `WEATHER_OPENAI_MINUTES`, `WEATHER_OPENAI_RUNS_PER_DAY` | OpenAI model, effort (default `high`), time limit and daily cap. |
+| `SWEEP_HOURS_UTC` | Sweep hours: `22` on Replit; `10,22` adds a sweep after the 00 UTC run. Empty disables sweeps. |
 | `SWEEP_MIN_HOURS` | Minimum gap between sweeps (default 6). |
 | `REQUEST_HOURS`, `REQUESTS_PER_DEVICE_PER_DAY`, `REQUESTS_PER_DAY` | Requested events: listing time (48 h) and limits (3 per device, 12 in all, per day). |
 | `WEB_DISPATCH_TOKEN`, `WEB_DISPATCH_REPO` | Optional: notify a web viewer repository after each sweep. |

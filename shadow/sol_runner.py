@@ -143,7 +143,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("command", choices=["probe", "sweep", "cleanup"])
     ap.add_argument("--model", default="gpt-6.1-sol")
-    ap.add_argument("--effort", default="xhigh")
+    ap.add_argument("--effort", default="high")
     ap.add_argument("--minutes", type=float, default=45, help="wall-clock limit before the run is cancelled")
     ap.add_argument("--key-file", type=Path, default=KEY_FILE)
     ap.add_argument("--keep-session", action="store_true", help="don't delete the hosted session afterwards")

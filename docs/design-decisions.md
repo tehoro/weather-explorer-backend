@@ -15,7 +15,7 @@ Data, so everything shown can be reproduced by anyone. Consequences in the code:
   the needed bytes are fetched with HTTP Range requests.
 
 **2. The server only researches and serves highlights.** An early version computed map data for
-each request on a 0.5 vCPU server, and it froze under load. Now the server does work twice a day
+each request on a 0.5 vCPU server, and it froze under load. Now the server does work once a day
 (the sweep and its scenes) and every viewer request is a file read. Everything that grows with
 the number of viewers runs on the viewer's own device: decoding, colouring, contours, particles,
 the 3D view. Consequences:
@@ -28,7 +28,7 @@ The feed says what the model shows, cites official warnings where they exist, an
 visual is and isn't (clouds "inferred from humidity", heights "exaggerated").
 
 **4. Cheap to run.** A small Replit virtual machine (about US$15 a month), static hosting for the
-viewer, and about US$1.35–1.70 per sweep in AI usage. Choices are weighed against that.
+viewer, and a few US dollars a day in AI usage (one sweep a day since November 2026). Choices are weighed against that.
 
 ## The research sweep
 
