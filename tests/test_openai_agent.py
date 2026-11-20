@@ -81,7 +81,7 @@ class Sweep(unittest.TestCase):
         self.start.assert_not_called()
 
     def test_unfinished_run_is_resumed_not_paid_for_again(self):
-        run = self.runs / "20261101T050000Z"
+        run = self.runs / (engine.datetime.now(engine.timezone.utc) - engine.timedelta(hours=4)).strftime("%Y%m%dT%H%M%SZ")
         (run / "inputs").mkdir(parents=True)
         (run / "session.json").write_text(json.dumps({"id": "sess_0", "started_unix": engine.time.time() - 600}))
         engine.sweep(print)
@@ -89,7 +89,7 @@ class Sweep(unittest.TestCase):
         self.assertEqual(self.finish.call_args.args[1], run)
 
     def test_run_unfinished_for_hours_is_abandoned_and_a_new_one_started(self):
-        old = self.runs / "20261101T050000Z"
+        old = self.runs / (engine.datetime.now(engine.timezone.utc) - engine.timedelta(hours=4)).strftime("%Y%m%dT%H%M%SZ")
         (old / "inputs").mkdir(parents=True)
         (old / "session.json").write_text(json.dumps({"id": "sess_0", "started_unix": engine.time.time() - 4 * 3600}))
         self.new_run_started()

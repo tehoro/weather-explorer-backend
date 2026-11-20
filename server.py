@@ -120,6 +120,8 @@ class Refresh:
             await asyncio.to_thread(store.save)
             self.note("sweep started")
             before = feed_stamp()
+            feed = agent.FEED
+            previous = feed.read_bytes() if feed.exists() else None
             try:
                 self.last_report = await agent.run_refresh(self.note)
             except Exception as e:
@@ -129,11 +131,25 @@ class Refresh:
                 # last good feed and its scenes, and don't tell the web viewer there is a new sweep.
                 self.note("no new feed was published; the previous highlights stay up")
                 return
+            candidate = feed.with_name("pending-scenes.json")
+            feed.replace(candidate)
+            if previous is not None:
+                tmp = feed.with_suffix(".tmp")
+                tmp.write_bytes(previous)
+                tmp.replace(feed)
             try:
-                await scene_job.build(store.FEED)
+                await asyncio.to_thread(store.archive_research, candidate)
+            except Exception as e:
+                self.note(f"research archive failed: {e}")
+            try:
+                await scene_job.build(candidate)
+                if scenes.missing(candidate):
+                    raise RuntimeError("one or more scenes have no fill frames")
+                candidate.replace(feed)
                 self.note("scene data prepared")
             except Exception as e:
                 self.note(f"scene data failed: {e}")
+                return
             await asyncio.to_thread(store.save)
             await web_notify.notify("sweep")
 

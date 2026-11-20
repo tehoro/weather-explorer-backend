@@ -148,6 +148,10 @@ def build_items(items: list[dict], tag: str, source: str = "opendata", out_dir: 
     written = 0
     for item in items:
         for n, scene in enumerate(item.get("scenes", [])):
+            print(f"[scenes] building {tag}/{item['id']} scene {n}: {scene.get('fill')}", flush=True)
+            # A carried-forward scene may still point at yesterday's files.
+            scene.pop("data", None)
+            scene.pop("web_data", None)
             files = {}
             polar = fields.scene_polar_box(scene["bbox"], MARGIN)
             box, grow = (polar, 1.0) if polar else _box_and_grow(scene["bbox"])
@@ -253,7 +257,8 @@ def missing(feed_path: Path = store.FEED) -> bool:
         feed = json.loads(feed_path.read_text())
     except Exception:
         return False
-    return any("data" not in s and "web_data" not in s for i in feed.get("items", []) for s in i.get("scenes", []))
+    return any(not (s.get("web_data") or s.get("data") or {}).get("fill")
+               for i in feed.get("items", []) for s in i.get("scenes", []))
 
 
 def path_for(rel: str) -> Path | None:

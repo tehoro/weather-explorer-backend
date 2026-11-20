@@ -40,9 +40,8 @@ try:  # use the operating system's certificate store (works behind TLS-inspectin
 except ImportError:
     pass
 
-# On Replit the disk is temporary anyway, so cache in /tmp; locally keep it with the project.
-CACHE = Path(os.environ.get("WEATHER_CACHE") or ("/tmp/weather-cache" if os.environ.get("REPL_ID")
-                                                 else Path(__file__).parent / "data" / "cache"))
+# Replit can mount /tmp in RAM. Keep large GRIB messages on the project filesystem.
+CACHE = Path(os.environ.get("WEATHER_CACHE") or Path(__file__).parent / "data" / "cache")
 CACHE.mkdir(parents=True, exist_ok=True)
 ROOTS = ["https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com", "https://data.ecmwf.int/forecasts"]
 ATTRIBUTION = "Data: © {year} ECMWF, CC BY 4.0. Regridded and unit-converted."
@@ -199,18 +198,42 @@ def file_path(run: datetime, res: str, stream: str, type_: str, step: int, levty
     return f"{run:%Y%m%d}/{run:%H}z/ifs/{res}/{stream}/{run:%Y%m%d%H}0000-{step}h-{stream}-{type_}{suffix}"
 
 
-_index_cache: dict[str, list[dict]] = {}
+_index_cache: dict[str, tuple[str, list[dict]]] = {}
 _index_lock = threading.Lock()
 
 
-def _get(url: str, headers: dict | None = None, timeout: int = 60, attempts: int = 5) -> bytes:
+_aws_retry_after = 0.0
+
+
+def _mirrors(preferred: str | None = None) -> list[str]:
+    # Keep AWS as a last resort during a short cooldown, then try it first again.
+    if time.monotonic() < _aws_retry_after:
+        return ROOTS[::-1]
+    return [preferred, *(r for r in ROOTS if r != preferred)] if preferred else ROOTS
+
+
+def _get(url: str, headers: dict | None = None, timeout: int = 60, attempts: int = 5,
+         length: int | None = None) -> bytes:
     """GET with retries: S3 answers bursts of range requests with 503 Slow Down."""
+    global _aws_retry_after
     for i in range(attempts):
         try:
             req = urllib.request.Request(url, headers={**UA, **(headers or {})})
             with urllib.request.urlopen(req, timeout=timeout) as r:
-                return r.read()
+                if length is None:
+                    return r.read()
+                expected = headers["Range"].removeprefix("bytes=")
+                if r.status != 206 or r.headers.get("Content-Range", "").split("/")[0] != f"bytes {expected}":
+                    raise IOError("mirror did not honour the requested GRIB range")
+                return r.read(length + 1)
         except urllib.error.HTTPError as e:
+            if e.code in (429, 503) and url.startswith(ROOTS[0] + "/"):
+                now = time.monotonic()
+                if now >= _aws_retry_after:
+                    print(f"opendata: AWS returned {e.code}; trying ECMWF first for 120 s",
+                          file=sys.stderr, flush=True)
+                _aws_retry_after = now + 120
+                raise
             if e.code not in (429, 500, 502, 503, 504) or i == attempts - 1:
                 raise
         except (urllib.error.URLError, TimeoutError, ConnectionError):
@@ -225,7 +248,7 @@ def index_rows(rel: str) -> tuple[str, list[dict]] | None:
     with _index_lock:
         if rel in _index_cache:
             return _index_cache[rel]
-    for root in ROOTS:
+    for root in _mirrors():
         try:
             rows = [json.loads(l) for l in _get(f"{root}/{rel}.index", timeout=30).decode().splitlines() if l.strip()]
             with _index_lock:
@@ -237,7 +260,7 @@ def index_rows(rel: str) -> tuple[str, list[dict]] | None:
 
 
 def exists(rel: str) -> bool:
-    for root in ROOTS:
+    for root in _mirrors():
         try:
             req = urllib.request.Request(f"{root}/{rel}.index", method="HEAD", headers=UA)
             with urllib.request.urlopen(req, timeout=15) as r:
@@ -277,9 +300,9 @@ def fetch_field(run: datetime, res: str, stream: str, type_: str, container: int
             print(f"opendata: {param}{lev} step {step} not in {rel}", file=sys.stderr)
             return None
         rng = f"bytes={row['_offset']}-{row['_offset'] + row['_length'] - 1}"
-        for r0 in [root] + [r for r in ROOTS if r != root]:
+        for r0 in _mirrors(root):
             try:
-                data = _get(f"{r0}/{rel}.grib2", {"Range": rng})
+                data = _get(f"{r0}/{rel}.grib2", {"Range": rng}, length=row["_length"])
                 if len(data) != row["_length"]:
                     raise IOError(f"short read {len(data)}/{row['_length']}")
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -630,7 +653,8 @@ def encode(arr: np.ndarray, lo: float, hi: float) -> str:
 # Public entry point
 # --------------------------------------------------------------------------------------------
 
-_pool = ThreadPoolExecutor(max_workers=8)
+# Each concurrent download holds a GRIB message alongside the field being decoded.
+_pool = ThreadPoolExecutor(max_workers=2 if os.environ.get("REPL_ID") else 8)
 
 
 def _convert(layer: Layer, a: dict[str, np.ndarray], dt_hours: float) -> np.ndarray:

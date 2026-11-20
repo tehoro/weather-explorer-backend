@@ -92,7 +92,7 @@ class StabilityTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(json.loads((root/'active.json').read_text())[0]['status'], 'ready')
                 save.assert_called_once()
 
-    async def _sweep(self, research):
+    async def _sweep(self, research, scene_error=None):
         """Run one sweep with the given fake agent; returns (scene build mock, notify mock, feed path)."""
         import server
         tmp = tempfile.TemporaryDirectory()
@@ -103,7 +103,7 @@ class StabilityTests(unittest.IsolatedAsyncioTestCase):
             return await research(feed)
         with patch.object(server.agent, 'FEED', feed), \
              patch.object(server.agent, 'run_refresh', side_effect=run_refresh), \
-             patch.object(server.scene_job, 'build', new_callable=AsyncMock) as build, \
+             patch.object(server.scene_job, 'build', new_callable=AsyncMock, side_effect=scene_error) as build, \
              patch.object(server.web_notify, 'notify', new_callable=AsyncMock) as notify, \
              patch.object(server.store, 'save'):
             await server.Refresh()._run()
@@ -123,6 +123,30 @@ class StabilityTests(unittest.IsolatedAsyncioTestCase):
         build, notify, _ = await self._sweep(gives_up)
         build.assert_not_called()
         notify.assert_not_called()
+
+    async def test_worker_failure_preserves_validated_research_without_dispatch(self):
+        import server
+        async def publishes(feed):
+            feed.write_text(json.dumps({'generated_utc': '2026-11-01T15:00Z', 'items': []}))
+            return 'Published.'
+        with patch.object(server.store, 'archive_research') as archive:
+            build, notify, feed = await self._sweep(publishes, RuntimeError('worker killed'))
+        candidate = feed.with_name("pending-scenes.json")
+        archive.assert_called_once_with(candidate)
+        self.assertIn("15:00Z", candidate.read_text())
+        self.assertIn("03:00Z", feed.read_text())
+        build.assert_awaited_once()
+        notify.assert_not_called()
+
+    async def test_partial_scene_build_keeps_previous_ready_feed(self):
+        async def publishes(feed):
+            scene = {'fill': 'wind10', 'data': {'contours': 'tag/isobars.json.gz'}}
+            feed.write_text(json.dumps({'generated_utc': '2026-11-01T15:00Z',
+                                        'items': [{'scenes': [scene]}]}))
+        build, notify, feed = await self._sweep(publishes)
+        build.assert_awaited_once()
+        notify.assert_not_called()
+        self.assertIn('03:00Z', feed.read_text())
 
     async def test_published_sweep_builds_scenes_and_notifies(self):
         async def publishes(feed):

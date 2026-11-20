@@ -63,6 +63,22 @@ def save() -> None:
                 print(f"[store] could not save {key}: {e}", file=sys.stderr, flush=True)
 
 
+def archive_research(feed: Path) -> None:
+    """Keep the validated draft independently of the last scene-ready feed."""
+    if not ON_REPLIT:
+        return
+    from datetime import datetime
+    import json
+    text = feed.read_text()
+    stamp = datetime.fromisoformat(json.loads(text)["generated_utc"]).strftime("%Y%m%dT%H%MZ")
+    key = f"research/highlights-{stamp}.json"
+    client = _client()
+    if client is None:
+        raise RuntimeError("Object Storage unavailable")
+    client.upload_from_text(key, text)
+    print(f"[store] archived {key}", flush=True)
+
+
 def save_scenes(folder: Path) -> None:
     """Copy a feed's scene files to storage (they are rebuilt only once per sweep)."""
     c = _client()
