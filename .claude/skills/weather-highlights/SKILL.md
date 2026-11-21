@@ -413,6 +413,12 @@ Before publishing, run:
 uv run --frozen python $S/scripts/check_scenes.py data/highlights/draft.json
 ```
 
+In the hosted Sol sandbox add `--report-dir /workspace/outputs/logs/scene-checks` on
+every invocation. The terminal gives caption-frame values and issues. Each check saves its
+full report in a separate log there. If a caption needs more detail, read only its section
+of the saved report. After editing a single scene use `--item <id> --scene <number>`.
+Scene numbers start at zero.
+
 It builds every scene as the viewer will show it (newest run, same box and resolution; downloads
 are cached for the scene build) and prints, at each caption: the frame and run, the value at each
 focus place and the strongest within 150 km with its direction, the scene's extremes and where

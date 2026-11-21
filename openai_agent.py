@@ -89,6 +89,8 @@ PROMPT = (
     "moment, with places and values (for example 'Almost stationary south-west of Iwo To' or "
     "'HRES: 959 hPa, gusts near 69 m/s'). Don't address the viewer ('Compare', 'Watch', 'Look for', "
     "'Follow') and don't use captions for caveats; caveats belong in the summary, confidence and gaps. "
+    "Run every scene check with --report-dir /workspace/outputs/logs/scene-checks. Use its compact output. "
+    "After edits, recheck only affected scenes with --item and --scene. "
     "Write the full draft with all scenes, run check_scenes.py on it as SKILL.md says and correct the "
     "captions and text until the numbers, places and times match the frames, then run the original "
     "publish_highlights.py "
@@ -511,6 +513,20 @@ def sweep(log: Log) -> str:
         run = prepare(RUNS)
         start(c, run, MODEL, EFFORT, "weather-highlights-sweep", log)
     result = finish(c, run, MINUTES, sys.executable, log)
+    usage = result.get("usage") or {}
+    if usage:
+        cached = (usage.get("input_tokens_details") or {}).get("cached_tokens")
+        log(f"sweep tokens: input={usage.get('input_tokens')} cached={cached} output={usage.get('output_tokens')}")
+    reports = sorted((run / "artifacts/logs/scene-checks").glob("scene-check-*.log"))
+    full_bytes = brief_bytes = checks = 0
+    for report in reports:
+        content, marker, size = report.read_bytes().rstrip().rpartition(b"\nSummary bytes: ")
+        if marker and size.isdigit():
+            full_bytes += len(content) + 1
+            brief_bytes += int(size)
+            checks += 1
+    if checks:
+        log(f"scene checks: {checks} reports, {brief_bytes} summary bytes, {full_bytes} full bytes")
     if not result["success"]:
         raise RuntimeError(f"OpenAI sweep not published: {result['outcome']}; "
                            f"{result['validation'].get('reason', 'validator ok')}")

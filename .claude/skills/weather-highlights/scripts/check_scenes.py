@@ -34,11 +34,13 @@ from __future__ import annotations
 
 import argparse
 import base64
+from contextlib import redirect_stderr, redirect_stdout
 import json
 import math
 import os
 import re
 import sys
+from tempfile import NamedTemporaryFile
 from pathlib import Path
 
 import numpy as np
@@ -107,6 +109,11 @@ def where(lat, lon, focus) -> str:
     return f"{lat:.1f},{lon:.1f} ({rel} {f['label']})"
 
 
+def short_place(place: str) -> str:
+    """Use the relative location where the full report gives coordinates as well."""
+    return place.split(" (", 1)[1][:-1] if " (" in place else place
+
+
 def edge_side(j: int, pkg: dict) -> str | None:
     """The box edge (west, east, north, south) a flat grid index lies on, if any. Polar grids have no
     straight edges to cross, so they are skipped."""
@@ -173,11 +180,12 @@ def stratosphere(run: str, step: int, hemi: int) -> str:
     return f"10 hPa: zonal-mean u at {60 * hemi:+d}° {u60:+.1f} m/s, cap mean T {capt:.1f} °C, pole minus 60° {dpole:+.1f} K"
 
 
-def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) -> None:
+def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str], compact: list[str]) -> None:
     name = f"{it['id']} scene {n}"
     fill = sc.get("fill")
     print(f"\n  SCENE {n}: {sc.get('title')}  [{fill}{' + ' + sc['contours'] if sc.get('contours') else ''}]")
     if fill not in fields.LAYERS:
+        flags.append(f"{name}: unknown fill layer {fill}")
         print("    unknown fill layer")
         return
     polar = fields.scene_polar_box(sc["bbox"], 0)
@@ -196,6 +204,7 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) 
     gaps = sorted({int((b - a).total_seconds() // 3600) for a, b in zip(ts, ts[1:])})
     runs = sorted({f"{f['run'][8:10]} {f['run'][11:13]}z" for f in frames if f.get("run")})
     print(f"    {len(frames)} frames {times[0]} -> {times[-1]} (end asked {sc.get('end')}), every {gaps} h, runs {runs}")
+    compact.append(f"{name} [{fill}, {pkg.get('units', '')}] runs {', '.join(runs)}")
     cont = None
     if sc.get("contours") in CENTRES and sc["contours"] != fill:
         cont = fields.get_frames(sc["contours"], box, sc.get("start"), sc.get("end"), 200, count)
@@ -223,14 +232,22 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) 
         v = values(pkg, f)
         ok = np.isfinite(v) & np.isfinite(lats)
         if not ok.any():
+            flags.append(f"{name}: no finite fill values at {times[k]}")
             continue
         unit = pkg.get("units", "")
         cats = {c[0]: c[1] for c in (fields.LAYERS[fill].categories or [])}
         vmax, vmin = np.nanmax(np.where(ok, v, np.nan)), np.nanmin(np.where(ok, v, np.nan))
         jmax, jmin = np.nanargmax(np.where(ok, v, -np.inf)), np.nanargmin(np.where(ok, v, np.inf))
+        evidence = [times[k]]
+        if len(runs) > 1 and f.get("run"):
+            evidence.append(f"run {f['run'][:13]}Z")
         if not cats:
-            print(f"      max {fmt(vmax)} {unit} at {where(lats.flat[jmax], lons.flat[jmax], focus)}; "
-                  f"min {fmt(vmin)} {unit} at {where(lats.flat[jmin], lons.flat[jmin], focus)}")
+            high = where(lats.flat[jmax], lons.flat[jmax], focus)
+            low = where(lats.flat[jmin], lons.flat[jmin], focus)
+            evidence.extend([f"min {fmt(vmin)} {short_place(low)}", f"max {fmt(vmax)} {short_place(high)}"])
+            print(f"      max {fmt(vmax)} {unit} at {high}; min {fmt(vmin)} {unit} at {low}")
+        elif not focus:
+            evidence.append(", ".join(show(x, unit, cats) for x in np.unique(np.rint(v[ok]))))
         for fo in focus:
             d = km(fo["lat"], fo["lon"], lats, lons)
             d = np.where(ok, d, np.inf)
@@ -240,21 +257,40 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) 
                 j = int(np.nanargmax(np.where(near, v, -np.inf)))
                 dist = float(d.flat[j])
                 rel = "" if dist < 25 else f" {about(dist)} {bearing(fo['lat'], fo['lon'], lats.flat[j], lons.flat[j])}"
+                if cats or fo['label'].casefold() in c['text'].casefold():
+                    point = show(here, unit, cats) if cats else fmt(here)
+                    nearby = "" if cats or v.flat[j] == here else f", nearby {fmt(v.flat[j])}{rel}"
+                    evidence.append(f"{fo['label']} {point}{nearby}")
                 if cats:
                     print(f"      {fo['label']}: {show(here, unit, cats)}")
                 else:
                     print(f"      {fo['label']}: {fmt(here)} {unit} (strongest within {NEAR_KM} km {fmt(v.flat[j])}{rel})")
+            elif fo["label"].casefold() in c["text"].casefold():
+                flags.append(f"{name}: caption {c['at']} has no data within {NEAR_KM} km of {fo['label']}")
         if cont and cont.get("frames"):
             cf = next((x for x in cont["frames"] if x["valid_time"] == times[k]), None)
             if cf:
                 cv = values(cont, cf)
                 clons, clats = grid(cont)
                 cok = np.isfinite(cv) & np.isfinite(clats)
-                j = int(np.nanargmin(np.where(cok, cv, np.inf)))
-                print(f"      lowest {cont['layer']} {fmt(cv.flat[j])} {cont['units']} at {where(clats.flat[j], clons.flat[j], focus)}")
+                if cok.any():
+                    j = int(np.nanargmin(np.where(cok, cv, np.inf)))
+                    place = where(clats.flat[j], clons.flat[j], focus)
+                    print(f"      lowest {cont['layer']} {fmt(cv.flat[j])} {cont['units']} at {place}")
+                    if cont is not pkg:
+                        evidence.append(f"low {fmt(cv.flat[j])} {cont['units']} {short_place(place)}")
+                else:
+                    flags.append(f"{name}: no finite contour values at {times[k]}")
+            elif cont is not pkg:
+                flags.append(f"{name}: missing {sc['contours']} contour frame at {times[k]}")
+        elif sc.get("contours") in CENTRES:
+            flags.append(f"{name}: missing {sc['contours']} contour data at {times[k]}")
         if fill in STRAT or sc.get("contours") in STRAT or sc.get("vectors") in STRAT:
             if f.get("run") and f.get("step") is not None:
-                print("      " + stratosphere(f["run"], f["step"], 1 if (sc["bbox"][3] > 0) else -1))
+                diagnostic = stratosphere(f["run"], f["step"], 1 if sc["bbox"][3] > 0 else -1)
+                print("      " + diagnostic)
+                evidence.append(diagnostic)
+        compact.append(" | ".join(evidence))
         span = (vmax - vmin) or 1.0
         said = unit_numbers(c["text"], unit)
         for x in said:
@@ -277,6 +313,7 @@ def check_scene(it: dict, n: int, sc: dict, flags: list[str], notes: list[str]) 
         notes.append(f"{name}: {msg}")
     last = caps[-1] if caps else None
     if last and not last.get("until") and last["at"] < times[-1]:
+        notes.append(f"{name}: check last caption still applies through {times[-1]}")
         print(f"    last caption stays on screen to {times[-1]}: is it still true then?")
 
 
@@ -284,24 +321,54 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("draft")
     ap.add_argument("--item", help="only items whose id contains this")
+    ap.add_argument("--report-dir", type=Path, help="save the full log here and print only caption evidence and issues")
+    ap.add_argument("--scene", type=int, help="only this zero-based scene number of --item")
     a = ap.parse_args()
     try:
         os.nice(10)                         # never compete with the server
     except OSError:
         pass
     feed = json.loads(Path(a.draft).read_text())
+    if a.scene is not None and not a.item:
+        ap.error("--scene requires --item")
+    if a.report_dir is None:
+        check_feed(feed, a, [])
+        return
+    a.report_dir.mkdir(parents=True, exist_ok=True)
+    compact = []
+    with NamedTemporaryFile(mode="w", encoding="utf-8", dir=a.report_dir, prefix="scene-check-",
+                            suffix=".log", delete=False) as report:
+        print(f"Full report: {report.name}", flush=True)
+        with redirect_stdout(report), redirect_stderr(report):
+            check_feed(feed, a, compact)
+        summary = "\n".join(compact)
+        report.flush()
+        print(f"Summary bytes: {len(summary.encode())}", file=report)
+    print(summary)
+
+
+def check_feed(feed, a, compact):
     print(f"newest run on Open Data: {fields.iso(fields.latest_run())}")
     flags: list[str] = []
     notes: list[str] = []
+    checked = 0
     for it in feed.get("items", []):
         if a.item and a.item not in it.get("id", ""):
             continue
         print("=" * 100 + f"\n{it.get('id')}: {it.get('title')}")
         for n, sc in enumerate(it.get("scenes", [])):
+            if a.scene is not None and n != a.scene:
+                continue
+            checked += 1
             try:
-                check_scene(it, n, sc, flags, notes)
+                check_scene(it, n, sc, flags, notes, compact)
             except Exception as e:          # one scene failing doesn't stop the others
+                flags.append(f"{it['id']} scene {n}: could not check: {type(e).__name__}: {e}")
                 print(f"    could not check: {type(e).__name__}: {e}")
+    if not checked:
+        flags.append("no scenes matched the draft and filters")
+    compact.extend(f"FLAG {line}" for line in flags)
+    compact.extend(f"NOTE {line}" for line in notes)
     if notes:
         print("\nNOTES (the text points at a weaker spot than the animation shows, or the feature runs out of the box; "
               "look again):\n  - " + "\n  - ".join(notes))
